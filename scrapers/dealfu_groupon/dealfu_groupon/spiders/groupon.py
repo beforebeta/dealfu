@@ -75,6 +75,17 @@ class GrouponSpider(Spider):
 
         m["name"] = merchant_name
 
+        #price info
+        purchase_block = sel.xpath('//div[@id="purchase-cluster"]')
+        if purchase_block:
+            price = purchase_block.xpath('.//span[@class="price"]/text()')[0].extract()
+            d["price"] = price
+
+            discount_xp = sel.xpath('//div[@id="purchase-cluster"]//tr[@id="discount-data"]')
+            d["discount_percentage"] = discount_xp.xpath('.//td[@id="discount-percent"]/text()')[0].extract()
+            d["discount_amount"] = discount_xp.xpath('.//td[@id="discount-you-save"]/text()')[0].extract()
+            d["value"] = discount_xp.xpath('.//td[@id="discount-value"]/text()')[0].extract()
+
         #extract address info
         addresses_xp = sel.xpath('//ol[@id="redemption-locations"]//div[@class="address"]')
         addresses = []

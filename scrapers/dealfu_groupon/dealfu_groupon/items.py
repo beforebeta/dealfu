@@ -32,6 +32,10 @@ class MerchantItem(Item):
 class DealfuItem(Item):
 
     url = Field()
+    discount_amount = Field()
+    discount_percentage = Field()
+    price = Field()
+    value = Field()
+
     #ref to MerchantItem
     merchant = Field()
-
