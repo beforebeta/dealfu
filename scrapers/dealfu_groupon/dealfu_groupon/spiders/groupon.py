@@ -68,6 +68,10 @@ class GrouponSpider(Spider):
         price_dict = self._extract_price_info(response)
         d.update(price_dict)
 
+        #get expires info
+        expires_dict = self._extract_expires_at(response)
+        d.update(expires_dict)
+
         #set the merchant
         m = self._extract_merchant_info(response)
         d["merchant"] = m
@@ -78,10 +82,10 @@ class GrouponSpider(Spider):
         if d.get("discount_percentage"):
             d["short_title"] = "%s off at %s!"%(d["discount_percentage"], m.get("name"))
 
-        #description extraction
-        #desc_list = sel.xpath('//article[@class="seven columns pitch"]/div[@class="discussion row"]/preceding-sibling::node()').extract()
-        #d["description"] = "".join([d.strip() for d in desc_list if d.strip()])
-        #print "DESC ","".join([d.strip() for d in desc_list if d.strip()])
+        #description extraction WARN: XPATH MAGIC!!!
+        desc_list = sel.xpath('//article[contains(@class, "pitch")]/div[contains(@class, "discussion")]/preceding-sibling::node()').extract()
+        d["description"] = "".join([desc.strip() for desc in desc_list if desc.strip()])
+        d["fine_print"] = None
 
         #number sold
         sold_xp = sel.xpath('//div[@class="deal-status"]//span/text()')
@@ -100,6 +104,22 @@ class GrouponSpider(Spider):
         #provide info
         d["provider_name"] = "Groupon"
         d["provider_slug"] = "groupon"
+
+        return d
+
+
+    def _extract_expires_at(self, response):
+        """
+        Gets the expires_at info
+        @param response:
+        @return:
+        """
+        sel = Selector(response)
+        d = {"expires_at":""}
+
+        expires_xp = sel.xpath('//li[@class="countdown-timer"]/text()')
+        if expires_xp:
+            d["expires_at"] = expires_xp[0].extract()
 
         return d
 

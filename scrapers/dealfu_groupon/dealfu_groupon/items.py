@@ -47,13 +47,10 @@ class DealfuItem(Item):
     short_title = Field()
     image_url = Field()
     description = Field()
+    fine_print = Field()
+    expires_at = Field()
 
-    #fine_print = Field()
     #online = Field not sure how to get that one
-
-    #it changes should i invest time in figuring it out ?
-    # expires_at = Field()
-
     #how to figure out the categories at that stage ?
     #category_name = Field()
     #category_field = Field()
