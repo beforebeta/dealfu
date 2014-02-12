@@ -32,10 +32,35 @@ class MerchantItem(Item):
 class DealfuItem(Item):
 
     url = Field()
+
+    #price information
     discount_amount = Field()
     discount_percentage = Field()
     price = Field()
     value = Field()
+    commission = Field()
+
+    number_sold = Field()
+
+    #content fields
+    title = Field()
+    short_title = Field()
+    image_url = Field()
+    description = Field()
+
+    #fine_print = Field()
+    #online = Field not sure how to get that one
+
+    #it changes should i invest time in figuring it out ?
+    # expires_at = Field()
+
+    #how to figure out the categories at that stage ?
+    #category_name = Field()
+    #category_field = Field()
+
+    #the site you're getting the deals
+    provider_name = Field()
+    provider_slug = Field()
 
     #ref to MerchantItem
     merchant = Field()

@@ -58,8 +58,84 @@ class GrouponSpider(Spider):
         :param response:
         :return: DealfuItem
         """
+        sel = Selector(response)
         d = DealfuItem()
+
+        #the url of the deal
         d["url"] = response.url
+
+        #get pricing information
+        price_dict = self._extract_price_info(response)
+        d.update(price_dict)
+
+        #set the merchant
+        m = self._extract_merchant_info(response)
+        d["merchant"] = m
+
+
+        #content information
+        d["title"] = sel.xpath('//h3[@class="deal-subtitle"]/text()')[0].extract().strip()
+        if d.get("discount_percentage"):
+            d["short_title"] = "%s off at %s!"%(d["discount_percentage"], m.get("name"))
+
+        #description extraction
+        #desc_list = sel.xpath('//article[@class="seven columns pitch"]/div[@class="discussion row"]/preceding-sibling::node()').extract()
+        #d["description"] = "".join([d.strip() for d in desc_list if d.strip()])
+        #print "DESC ","".join([d.strip() for d in desc_list if d.strip()])
+
+        #number sold
+        sold_xp = sel.xpath('//div[@class="deal-status"]//span/text()')
+        if sold_xp:
+            sold_str = sold_xp[0].extract().strip()
+            res = re.search("(\d+)", sold_str.replace(",", ""))
+            if res:
+                d["number_sold"] = res.group().strip()
+
+        #image_url
+        img_xp = sel.xpath('//img[@id="featured-image"]/@src')
+        if img_xp:
+            d["image_url"] = img_xp[0].extract().strip()
+
+
+        #provide info
+        d["provider_name"] = "Groupon"
+        d["provider_slug"] = "groupon"
+
+        return d
+
+
+    def _extract_price_info(self, response):
+        """
+        Looks up for the pricing info into response
+        @param response:
+        @return: a dict of populated info
+        """
+        sel = Selector(response)
+        d = {}
+        #price info
+        purchase_block = sel.xpath('//div[@id="purchase-cluster"]')
+        if purchase_block:
+            price_xp = purchase_block.xpath('.//span[@class="price"]/text()')
+            if price_xp:
+                d["price"] = price_xp[0].extract()
+
+            discount_xp = sel.xpath('//div[@id="purchase-cluster"]//tr[@id="discount-data"]')
+            if discount_xp:
+                d["discount_percentage"] = discount_xp.xpath('.//td[@id="discount-percent"]/text()')[0].extract()
+                d["discount_amount"] = discount_xp.xpath('.//td[@id="discount-you-save"]/text()')[0].extract()
+                d["value"] = discount_xp.xpath('.//td[@id="discount-value"]/text()')[0].extract()
+
+        d["commission"] = 0
+
+        return d
+
+
+    def _extract_merchant_info(self, response):
+        """
+        Extracts all of the merchant info here
+        @param response:
+        @return: MerchantItem
+        """
         m = MerchantItem()
 
         #extracting some merchant data
@@ -68,23 +144,12 @@ class GrouponSpider(Spider):
 
         index = title.rfind("-")
         if index == -1:
-            return None
+            return {}
 
         merchant_name = title[:index].strip()
-        location = title[index+1:].strip()
+        #location = title[index+1:].strip()
 
         m["name"] = merchant_name
-
-        #price info
-        purchase_block = sel.xpath('//div[@id="purchase-cluster"]')
-        if purchase_block:
-            price = purchase_block.xpath('.//span[@class="price"]/text()')[0].extract()
-            d["price"] = price
-
-            discount_xp = sel.xpath('//div[@id="purchase-cluster"]//tr[@id="discount-data"]')
-            d["discount_percentage"] = discount_xp.xpath('.//td[@id="discount-percent"]/text()')[0].extract()
-            d["discount_amount"] = discount_xp.xpath('.//td[@id="discount-you-save"]/text()')[0].extract()
-            d["value"] = discount_xp.xpath('.//td[@id="discount-value"]/text()')[0].extract()
 
         #extract address info
         addresses_xp = sel.xpath('//ol[@id="redemption-locations"]//div[@class="address"]')
@@ -97,11 +162,7 @@ class GrouponSpider(Spider):
         #set addresses
         m["addresses"] = addresses
 
-        #set the merchant
-        d["merchant"] = m
-
-
-        return d
+        return m
 
 
     def _extract_addr_info(self, xpath_sel):
