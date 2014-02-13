@@ -7,7 +7,7 @@ from scrapy.spider import Spider
 from scrapy.selector import Selector
 
 from dealfu_groupon.items import DealfuItem, MerchantItem
-from dealfu_groupon.utils import get_fresh_merchant_address, get_first_non_empty, get_short_region_name
+from dealfu_groupon.utils import get_fresh_merchant_address, get_first_non_empty, get_short_region_name, get_first_from_xp
 
 
 class GrouponSpider(Spider):
@@ -62,7 +62,7 @@ class GrouponSpider(Spider):
         d = DealfuItem()
 
         #the url of the deal
-        d["url"] = response.url
+        d["untracked_url"] = response.url
 
         #get pricing information
         price_dict = self._extract_price_info(response)
@@ -181,6 +181,9 @@ class GrouponSpider(Spider):
 
         #set addresses
         m["addresses"] = addresses
+
+        #check for website
+        m["url"] = get_first_from_xp(sel.xpath('//div[@class="merchant-links"]//a/@href'))
 
         return m
 

@@ -26,13 +26,14 @@ class MerchantItem(Item):
     Merchant Item in a deal
     """
     name = Field()
+    url = Field()#company web site
     addresses = Field() #list of MerchantAddressItems
 
 
 
 class DealfuItem(Item):
 
-    url = Field()
+    untracked_url = Field()
 
     #price information
     discount_amount = Field()
