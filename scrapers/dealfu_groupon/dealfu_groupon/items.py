@@ -12,6 +12,7 @@ class MerchantAddressItem(Item):
     address = Field()
     locality = Field() #mountain view ?
     region = Field()
+    region_long = Field()
     postal_code = Field()
     country = Field()
     country_code = Field()

@@ -33,3 +33,81 @@ def get_first_non_empty(lst):
 
 
     return None, -1
+
+
+def get_first_from_xp(xp, missing=None):
+    """
+    Asks for the first value in the xpath if available
+    if not missing is returned back
+    @param xp:
+    @param missing:
+    @return: value or missing
+    """
+    if not xp:
+        return missing
+
+    return xp[0].extract()
+
+
+
+REGION_DICT = {
+        "Alabama" : "AL",
+        "Alaska": "AK",
+        "Arizona" : "AZ",
+        "Arkansas" : "AR",
+        "California" :"CA",
+        "Colorado": "CO",
+        "Connecticut" :"CT",
+        "Delaware" :"DE",
+        "Florida" : "FL",
+        "Georgia" :"GA",
+        "Hawaii" :"HI",
+        "Illinois" :"IL",
+        "Indiana" :"IN",
+        "Iowa": "IA",
+        "Kansas": "KS",
+        "Kentucky":"KY",
+        "Louisiana": "LA",
+        "Maine":"ME",
+        "Maryland": "MD",
+        "Massachusetts":"MA",
+        "Michigan": "MI",
+        "Minnesota":"MN",
+        "Mississippi":"MS",
+        "Missouri":"MO",
+        "Montana":"MT",
+        "Nebraska":"NB",
+        "Nevada":"NV",
+        "New Hampshire" : "NH",
+        "New Jersey":"NJ",
+        "New Mexico":"NM",
+        "New York":"NY",
+        "North Carolina":"NC",
+        "North Dakota":"ND",
+        "Ohio":"OH",
+        "Oklahoma":"OK",
+        "Oregon":"OR",
+        "Pennsylvania":"PA",
+        "Rhode Island":"RI",
+        "South Carolina":"SC",
+        "South Dakota":"SD",
+        "Tennessee":"TN",
+        "Texas":"TX",
+        "Utah":"UT",
+        "Vermont":"VT",
+        "Virginia":"VA",
+        "Washington":"WA",
+        "West Virginia":"WV",
+        "Wisconsin":"WI",
+        "Wyoming":"WY"
+    }
+
+
+def get_short_region_name(region_name):
+    """
+    Gets the shorter version of the given region
+    @param region_name:
+    @return: shorter name
+    """
+    return REGION_DICT.get(region_name.strip())
+

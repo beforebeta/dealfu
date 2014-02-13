@@ -7,7 +7,7 @@ from scrapy.spider import Spider
 from scrapy.selector import Selector
 
 from dealfu_groupon.items import DealfuItem, MerchantItem
-from dealfu_groupon.utils import get_fresh_merchant_address, get_first_non_empty
+from dealfu_groupon.utils import get_fresh_merchant_address, get_first_non_empty, get_short_region_name
 
 
 class GrouponSpider(Spider):
@@ -206,7 +206,9 @@ class GrouponSpider(Spider):
         if res:
             final_address = res.group(1).strip()
             ma["address"] = final_address
-            ma["region"] = res.group(2)
+            ma["region_long"] = res.group(2)
+            ma["region"] = get_short_region_name(res.group(2))
+
             #locality at that stage ?
             ma["postal_code"] = res.group(3)
 
