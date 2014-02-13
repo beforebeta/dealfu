@@ -7,7 +7,7 @@ from scrapy.spider import Spider
 from scrapy.selector import Selector
 
 from dealfu_groupon.items import DealfuItem, MerchantItem
-from dealfu_groupon.utils import get_fresh_merchant_address, get_first_non_empty, get_short_region_name, get_first_from_xp
+from dealfu_groupon.utils import get_fresh_merchant_address, get_first_non_empty, get_short_region_name, get_first_from_xp, extract_query_params
 
 
 class GrouponSpider(Spider):
@@ -63,6 +63,7 @@ class GrouponSpider(Spider):
 
         #the url of the deal
         d["untracked_url"] = response.url
+        d["online"] = True
 
         #get pricing information
         price_dict = self._extract_price_info(response)
@@ -101,9 +102,36 @@ class GrouponSpider(Spider):
             d["image_url"] = img_xp[0].extract().strip()
 
 
+        #get the category info from page
+        d.update(self._extract_category_info(response))
+
         #provide info
         d["provider_name"] = "Groupon"
         d["provider_slug"] = "groupon"
+
+        return d
+
+
+    def _extract_category_info(self, response):
+        """
+        Gets category info from script tag of the page !!!
+        @param response:
+        @return: a dict with category info
+        """
+        sel = Selector(response)
+        d = {"category_slug":None,
+             "category_name":None}
+
+        script_xp = sel.xpath("//script")
+        for sc in script_xp:
+            res = re.search("dataLayer\s*\=\s*(\{.*\})\s*;",sc.extract())
+            if res:
+                data = json.loads(res.group(1).strip())
+                if data.get("dl_category_sub"):
+                    d["category_slug"] = data["dl_category_sub"]
+                    d["category_name"] = data["dl_category_sub"]
+
+                break
 
         return d
 

@@ -34,6 +34,7 @@ class MerchantItem(Item):
 class DealfuItem(Item):
 
     untracked_url = Field()
+    online = Field()
 
     #price information
     discount_amount = Field()
@@ -52,10 +53,9 @@ class DealfuItem(Item):
     fine_print = Field()
     expires_at = Field()
 
-    #online = Field not sure how to get that one
-    #how to figure out the categories at that stage ?
-    #category_name = Field()
-    #category_field = Field()
+    #category info
+    category_name = Field()
+    category_slug = Field()
 
     #the site you're getting the deals
     provider_name = Field()

@@ -1,6 +1,7 @@
 """
 Some useful common functions
 """
+import urlparse
 
 from dealfu_groupon.items import MerchantItem, MerchantAddressItem
 
@@ -110,4 +111,18 @@ def get_short_region_name(region_name):
     @return: shorter name
     """
     return REGION_DICT.get(region_name.strip())
+
+
+def extract_query_params(url, *names):
+    """
+    Extracts names in the list from url
+    @param url:
+    @param names:
+    @return: dict
+    """
+    parsed_res = urlparse.urlparse(url)
+    d = urlparse.parse_qs(parsed_res.query)
+
+    return {key:value[0] for (key, value) in d.iteritems() if key in names}
+
 
