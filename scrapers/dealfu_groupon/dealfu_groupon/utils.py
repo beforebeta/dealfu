@@ -2,6 +2,7 @@
 Some useful common functions
 """
 import urlparse
+import urllib
 
 from dealfu_groupon.items import MerchantItem, MerchantAddressItem
 
@@ -126,3 +127,9 @@ def extract_query_params(url, *names):
     return {key:value[0] for (key, value) in d.iteritems() if key in names}
 
 
+def replace_query_param(url, name, value):
+    encoded_str = urllib.urlencode({name:value})
+    d = extract_query_params(url, name)
+    encoded_old = urllib.urlencode({name:d.get(name)})
+
+    return url.replace(encoded_old, encoded_str)

@@ -7,7 +7,7 @@ from scrapy.spider import Spider
 from scrapy.selector import Selector
 
 from dealfu_groupon.items import DealfuItem, MerchantItem
-from dealfu_groupon.utils import get_fresh_merchant_address, get_first_non_empty, get_short_region_name, get_first_from_xp, extract_query_params
+from dealfu_groupon.utils import get_fresh_merchant_address, get_first_non_empty, get_short_region_name, get_first_from_xp, extract_query_params, replace_query_param
 
 
 class GrouponSpider(Spider):
@@ -15,12 +15,24 @@ class GrouponSpider(Spider):
     name = "groupon"
     allowed_domains = ["groupon.com"]
     start_urls = [
-        "https://www.groupon.com/browse/deals/partial?division=denver&isRefinementBarDisplayed=true&facet_group_filters=topcategory%7Ccategory%7Ccategory2%7Ccategory3%3Bdeal_type%3Bcity%7Cneighborhood&page=1"
+        "https://www.groupon.com/browse/deals/partial?division=los-angeles&isRefinementBarDisplayed=true&facet_group_filters=topcategory%7Ccategory%7Ccategory2%7Ccategory3%3Bdeal_type%3Bcity%7Cneighborhood&page=1"
     ]
 
 
     def parse(self, response):
+        """
+        Starts parsing from here!
+        @param response:
+        @return:
+        """
+        yield Request(response.url,
+                      callback=self._parse_pagination)
+
+
+    def _parse_pagination(self, response):
         resp = json.loads(response.body)
+        pagination = resp["deals"]["metadata"]["pagination"]
+
         deal_html = resp["deals"]["dealsHtml"]
 
         new_resp = self._recreate_resp(response, deal_html)
@@ -28,11 +40,23 @@ class GrouponSpider(Spider):
         deals_xp = sel.xpath("//figure/a/@href")
         deals_urls = [d.extract() for d in deals_xp]
 
-
         for d in deals_urls:
             r = Request(d, callback=self.parse_deal)
             yield r
 
+        #and at that stage we should check if there is more page
+        if int(pagination.get("nextPageSize")) > 0:
+            #we should get the next page
+            d = extract_query_params(response.url, "page")
+            if d.get("page"):
+                next_page = int(d["page"]) + 1
+                next_url = replace_query_param(response.url,
+                                               "page",
+                                               str(next_page))
+
+                #you get the next page here !
+                yield Request(next_url,
+                              callback=self._parse_pagination)
 
 
     def _recreate_resp(self, response, body):
