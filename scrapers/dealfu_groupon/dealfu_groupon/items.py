@@ -63,3 +63,14 @@ class DealfuItem(Item):
 
     #ref to MerchantItem
     merchant = Field()
+
+
+
+class DealCategoryItem(Item):
+    """
+    That will be the category tree
+    matching the sqoot structure !!
+    """
+    name = Field()
+    slug = Field()
+    parent_slug = Field()
