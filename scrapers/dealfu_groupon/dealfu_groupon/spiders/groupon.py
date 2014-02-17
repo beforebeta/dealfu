@@ -1,22 +1,39 @@
 import json
 import re
+from datetime import datetime
 
 from scrapy.http.response.html import HtmlResponse
 from scrapy.http import Request
 from scrapy.spider import Spider
 from scrapy.selector import Selector
+from dateutil.relativedelta import relativedelta
 
 from dealfu_groupon.items import DealfuItem, MerchantItem
-from dealfu_groupon.utils import get_fresh_merchant_address, get_first_non_empty, get_short_region_name, get_first_from_xp, extract_query_params, replace_query_param
+from dealfu_groupon.utils import get_fresh_merchant_address, get_short_region_name, get_first_from_xp, extract_query_params, replace_query_param, \
+    iter_divisions, clean_float_values
 
 
 class GrouponSpider(Spider):
 
     name = "groupon"
     allowed_domains = ["groupon.com"]
-    start_urls = [
-        "https://www.groupon.com/browse/deals/partial?division=los-angeles&isRefinementBarDisplayed=true&facet_group_filters=topcategory%7Ccategory%7Ccategory2%7Ccategory3%3Bdeal_type%3Bcity%7Cneighborhood&page=1"
-    ]
+
+
+    def __init__(self, division_path=None, *args, **kw):
+        super(GrouponSpider, self).__init__(*args, **kw)
+
+        if not division_path:
+            #put it to start with los-angeles
+            self.start_urls = [
+                "https://www.groupon.com/browse/deals/partial?division=los-angeles&isRefinementBarDisplayed=true&facet_group_filters=topcategory%7Ccategory%7Ccategory2%7Ccategory3%3Bdeal_type%3Bcity%7Cneighborhood&page=1"
+            ]
+            #print "START URLS : ",self.start_urls
+        else:
+            #set the start urls from the file supplied
+            start_s = "https://www.groupon.com/browse/deals/partial?division=%s&isRefinementBarDisplayed=true&facet_group_filters=topcategory%7Ccategory%7Ccategory2%7Ccategory3%3Bdeal_type%3Bcity%7Cneighborhood&page=1"
+            self.start_urls = [start_s % d["id"] for d in iter_divisions(division_path)]
+
+
 
 
     def parse(self, response):
@@ -39,8 +56,12 @@ class GrouponSpider(Spider):
         sel = Selector(new_resp)
         deals_xp = sel.xpath("//figure/a/@href")
         deals_urls = [d.extract() for d in deals_xp]
+        print "DEAL URLS : ",deals_urls
 
         for d in deals_urls:
+            if d.startswith("//"):
+                d = d.replace("//", "http://")
+
             r = Request(d, callback=self.parse_deal)
             yield r
 
@@ -105,7 +126,8 @@ class GrouponSpider(Spider):
         #content information
         d["title"] = sel.xpath('//h3[@class="deal-subtitle"]/text()')[0].extract().strip()
         if d.get("discount_percentage"):
-            d["short_title"] = "%s off at %s!"%(d["discount_percentage"], m.get("name"))
+            d["short_title"] = "{}% off at {}!".format("%s"%int(d["discount_percentage"]*100),
+                                                       m.get("name"))
 
         #description extraction WARN: XPATH MAGIC!!!
         desc_list = sel.xpath('//article[contains(@class, "pitch")]/div[contains(@class, "discussion")]/preceding-sibling::node()').extract()
@@ -118,7 +140,7 @@ class GrouponSpider(Spider):
             sold_str = sold_xp[0].extract().strip()
             res = re.search("(\d+)", sold_str.replace(",", ""))
             if res:
-                d["number_sold"] = res.group().strip()
+                d["number_sold"] = int(res.group().strip())
 
         #image_url
         img_xp = sel.xpath('//img[@id="featured-image"]/@src')
@@ -167,11 +189,41 @@ class GrouponSpider(Spider):
         @return:
         """
         sel = Selector(response)
-        d = {"expires_at":""}
+        d = {"expires_at":None}
 
         expires_xp = sel.xpath('//li[@class="countdown-timer"]/text()')
         if expires_xp:
-            d["expires_at"] = expires_xp[0].extract()
+            expires_at = expires_xp[0].extract()
+
+        if not expires_at:
+            return d
+
+        res = re.search("(\d+)\s*day[s]*\s*(\d+)\:(\d+)\:(\d+)", expires_at)
+        if res:
+            days = int(res.group(1))
+            hours = int(res.group(2))
+            minutes = int(res.group(3))
+            secs = int(res.group(4))
+
+            delta = relativedelta(days=+days,
+                                  hours=+hours,
+                                  minutes=+minutes,
+                                  seconds=+secs)
+
+            d["expires_at"] = datetime.utcnow() + delta
+
+        res = re.search("(\d+)\:(\d+)\:(\d+)", expires_at)
+        if res:
+            hours = int(res.group(1))
+            minutes = int(res.group(2))
+            secs = int(res.group(3))
+
+            delta = relativedelta(hours=+hours,
+                                  minutes=+minutes,
+                                  seconds=+secs)
+
+            d["expires_at"] = datetime.utcnow() + delta
+
 
         return d
 
@@ -187,15 +239,24 @@ class GrouponSpider(Spider):
         #price info
         purchase_block = sel.xpath('//div[@id="purchase-cluster"]')
         if purchase_block:
-            price_xp = purchase_block.xpath('.//span[@class="price"]/text()')
-            if price_xp:
-                d["price"] = price_xp[0].extract()
+            price = get_first_from_xp(purchase_block.xpath('.//span[@class="price"]/text()'))
+            if price:
+                d["price"] = clean_float_values(price, "$")
 
             discount_xp = sel.xpath('//div[@id="purchase-cluster"]//tr[@id="discount-data"]')
             if discount_xp:
-                d["discount_percentage"] = discount_xp.xpath('.//td[@id="discount-percent"]/text()')[0].extract()
-                d["discount_amount"] = discount_xp.xpath('.//td[@id="discount-you-save"]/text()')[0].extract()
-                d["value"] = discount_xp.xpath('.//td[@id="discount-value"]/text()')[0].extract()
+                discount_percentage = get_first_from_xp(discount_xp.xpath('.//td[@id="discount-percent"]/text()'))
+                if discount_percentage:
+                    discount_percentage = clean_float_values(discount_percentage, "%")/100
+                    d["discount_percentage"] = discount_percentage
+
+                discount_amount = get_first_from_xp(discount_xp.xpath('.//td[@id="discount-you-save"]/text()'))
+                if discount_amount:
+                    d["discount_amount"] = clean_float_values(discount_amount, "$")
+
+                value = get_first_from_xp(discount_xp.xpath('.//td[@id="discount-value"]/text()'))
+                if value:
+                    d["value"] = clean_float_values(value, "$")
 
         d["commission"] = 0
 
@@ -214,17 +275,20 @@ class GrouponSpider(Spider):
         sel = Selector(response)
         title = sel.xpath('//h2[@class="deal-page-title"]/text()')[0].extract().strip()
 
-        index = title.rfind("-")
-        if index == -1:
+        res = re.search("(.*)\s+\-\s+(.*)", title)
+        if not res:
             return {}
 
-        merchant_name = title[:index].strip()
-        #location = title[index+1:].strip()
-
+        merchant_name = res.group(1).strip()
         m["name"] = merchant_name
 
         #extract address info
-        addresses_xp = sel.xpath('//ol[@id="redemption-locations"]//div[@class="address"]')
+        #sometimes we have different formats, scrapping sucks!!!
+
+        addresses_xp = sel.xpath('//ul[@class="merchant-list"]/li')
+        if not addresses_xp:
+            addresses_xp = sel.xpath('//ol[@id="redemption-locations"]//div[@class="address"]')
+
         addresses = []
         for a in addresses_xp:
             ma = self._extract_addr_info(a)
@@ -248,6 +312,10 @@ class GrouponSpider(Spider):
         """
 
         text_list = [a.strip() for a in xpath_sel.xpath("./text()").extract() if a.strip()]
+        if not text_list:
+            #sometimes they send a longer list hidden in html !
+            text_list = [a.strip() for a in xpath_sel.xpath("./div[@class='address']/text()").extract() if a.strip()]
+
         name = xpath_sel.xpath(".//strong/text()")[0].extract()
 
         ma = get_fresh_merchant_address()

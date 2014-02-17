@@ -3,6 +3,7 @@ Some useful common functions
 """
 import urlparse
 import urllib
+import json
 
 from dealfu_groupon.items import MerchantItem, MerchantAddressItem
 
@@ -133,3 +134,29 @@ def replace_query_param(url, name, value):
     encoded_old = urllib.urlencode({name:d.get(name)})
 
     return url.replace(encoded_old, encoded_str)
+
+
+
+def iter_divisions(fpath):
+    """
+    Gets a path to the division file and traverses the file
+    by returning 1 record of division at time
+    """
+    divs = json.loads(open(fpath, "r").read())
+    for d in divs:
+        yield d
+
+
+
+
+
+def clean_float_values(sfloat, *clean_lst):
+    """
+    Does some general cleaning of float values
+    """
+
+    for c in clean_lst:
+        sfloat = sfloat.replace(c, "")
+
+    return float(sfloat.strip())
+
