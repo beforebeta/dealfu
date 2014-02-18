@@ -192,8 +192,10 @@ class GrouponSpider(Spider):
         d = {"expires_at":None}
 
         expires_xp = sel.xpath('//li[@class="countdown-timer"]/text()')
-        if expires_xp:
-            expires_at = expires_xp[0].extract()
+        if not expires_xp:
+            return d
+
+        expires_at = expires_xp[0].extract()
 
         if not expires_at:
             return d
@@ -252,11 +254,11 @@ class GrouponSpider(Spider):
 
                 discount_amount = get_first_from_xp(discount_xp.xpath('.//td[@id="discount-you-save"]/text()'))
                 if discount_amount:
-                    d["discount_amount"] = clean_float_values(discount_amount, "$")
+                    d["discount_amount"] = clean_float_values(discount_amount.replace(",",""), "$")
 
                 value = get_first_from_xp(discount_xp.xpath('.//td[@id="discount-value"]/text()'))
                 if value:
-                    d["value"] = clean_float_values(value, "$")
+                    d["value"] = clean_float_values(value.replace(",", ""), "$")
 
         d["commission"] = 0
 
