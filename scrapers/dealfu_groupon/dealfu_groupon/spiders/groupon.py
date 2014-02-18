@@ -30,8 +30,8 @@ class GrouponSpider(Spider):
             #print "START URLS : ",self.start_urls
         else:
             #set the start urls from the file supplied
-            start_s = "https://www.groupon.com/browse/deals/partial?division=%s&isRefinementBarDisplayed=true&facet_group_filters=topcategory%7Ccategory%7Ccategory2%7Ccategory3%3Bdeal_type%3Bcity%7Cneighborhood&page=1"
-            self.start_urls = [start_s % d["id"] for d in iter_divisions(division_path)]
+            start_s = "https://www.groupon.com/browse/deals/partial?division={}&isRefinementBarDisplayed=true&facet_group_filters=topcategory%7Ccategory%7Ccategory2%7Ccategory3%3Bdeal_type%3Bcity%7Cneighborhood&page=1"
+            self.start_urls = [start_s.format(d["id"]) for d in iter_divisions(division_path)]
 
 
 
@@ -56,7 +56,7 @@ class GrouponSpider(Spider):
         sel = Selector(new_resp)
         deals_xp = sel.xpath("//figure/a/@href")
         deals_urls = [d.extract() for d in deals_xp]
-        print "DEAL URLS : ",deals_urls
+        #print "DEAL URLS : ",deals_urls
 
         for d in deals_urls:
             if d.startswith("//"):

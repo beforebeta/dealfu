@@ -143,7 +143,7 @@ def iter_divisions(fpath):
     by returning 1 record of division at time
     """
     divs = json.loads(open(fpath, "r").read())
-    for d in divs:
+    for d in divs["divisions"]:
         yield d
 
 
