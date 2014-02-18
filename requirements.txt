@@ -1,2 +1,4 @@
 Scrapy==0.22.1
 python-dateutil==2.2
+Fabric==1.8.2
+elasticsearch==0.4.5
