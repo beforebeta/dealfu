@@ -16,8 +16,8 @@ def get_fresh_merchant_address():
     m = MerchantAddressItem()
     m["country"] = "United States"
     m["country_code"] = "US"
-    m["latitude"] = 0.0
-    m["longtitude"] = 0.0
+    #m["latitude"] = 0.0
+    #m["longtitude"] = 0.0
     m["address_name"] = ""
 
     return m
