@@ -19,8 +19,10 @@ class GrouponSpider(Spider):
     allowed_domains = ["groupon.com"]
 
 
-    def __init__(self, division_path=None, *args, **kw):
+    def __init__(self, division_path=None, only_one_page=False, *args, **kw):
         super(GrouponSpider, self).__init__(*args, **kw)
+
+        self.only_one_page = only_one_page
 
         if not division_path:
             #put it to start with los-angeles
@@ -66,7 +68,7 @@ class GrouponSpider(Spider):
             yield r
 
         #and at that stage we should check if there is more page
-        if int(pagination.get("nextPageSize")) > 0:
+        if int(pagination.get("nextPageSize")) > 0 and not self.only_one_page:
             #we should get the next page
             d = extract_query_params(response.url, "page")
             if d.get("page"):
@@ -120,7 +122,7 @@ class GrouponSpider(Spider):
 
         #set the merchant
         m = self._extract_merchant_info(response)
-        d["merchant"] = m
+        d["merchant"] = dict(m)
 
 
         #content information
