@@ -18,8 +18,6 @@ class GrouponCategorySpider(Spider):
         resp = json.loads(response.body)
         deal_cats = resp["deals"]["metadata"]["facets"][0]["values"]
 
-        print "DEAL_CATS : ",deal_cats
-
         categories = []
 
         for cat in deal_cats:
