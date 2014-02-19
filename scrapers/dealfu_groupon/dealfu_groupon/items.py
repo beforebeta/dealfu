@@ -16,8 +16,6 @@ class MerchantAddressItem(Item):
     postal_code = Field()
     country = Field()
     country_code = Field()
-    latitude = Field()
-    longtitude = Field()
     phone_number = Field()
 
 
