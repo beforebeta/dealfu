@@ -4,6 +4,7 @@ Some useful common functions
 import urlparse
 import urllib
 import json
+import re
 
 from dealfu_groupon.items import MerchantItem, MerchantAddressItem
 
@@ -158,5 +159,11 @@ def clean_float_values(sfloat, *clean_lst):
     for c in clean_lst:
         sfloat = sfloat.replace(c, "")
 
+    #we should extract it from here
+    res = re.search("(\d+.*)", sfloat)
+    if not res:
+        return 0
+
+    sfloat = res.group(1)
     return float(sfloat.strip())
 

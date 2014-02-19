@@ -243,7 +243,7 @@ class GrouponSpider(Spider):
         if purchase_block:
             price = get_first_from_xp(purchase_block.xpath('.//span[@class="price"]/text()'))
             if price:
-                d["price"] = clean_float_values(price, "$")
+                d["price"] = clean_float_values(price, "$", ",")
 
             discount_xp = sel.xpath('//div[@id="purchase-cluster"]//tr[@id="discount-data"]')
             if discount_xp:
@@ -254,11 +254,11 @@ class GrouponSpider(Spider):
 
                 discount_amount = get_first_from_xp(discount_xp.xpath('.//td[@id="discount-you-save"]/text()'))
                 if discount_amount:
-                    d["discount_amount"] = clean_float_values(discount_amount.replace(",",""), "$")
+                    d["discount_amount"] = clean_float_values(discount_amount, "$", ",")
 
                 value = get_first_from_xp(discount_xp.xpath('.//td[@id="discount-value"]/text()'))
                 if value:
-                    d["value"] = clean_float_values(value.replace(",", ""), "$")
+                    d["value"] = clean_float_values(value, "$", ",")
 
         d["commission"] = 0
 
