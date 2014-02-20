@@ -1,4 +1,6 @@
 Django==1.6.1
+djangorestframework==2.3.12
+Markdown==2.4
 bpython==0.12
 django-braces==1.2.2
 django-model-utils==1.4.0
