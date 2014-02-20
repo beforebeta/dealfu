@@ -1,8 +1,9 @@
-import json
+import datetime
+
 from scrapy.exceptions import DropItem
 
 import elasticsearch
-from elasticsearch.client import IndicesClient
+
 
 class EsPipeLine(object):
     """
@@ -23,9 +24,14 @@ class EsPipeLine(object):
         """
         #ser = json.dumps(dict(item))
         #res = json.loads(ser)
-        print "WHAT IS : ",self.es.create(index=self.settings.get("ES_INDEX"),
-                                        doc_type=self.settings.get("ES_INDEX_TYPE_DEALS"),
-                                        body=dict(item))
+
+        item = dict(item)
+        item["created_at"] = datetime.datetime.utcnow()
+        item["updated_at"] = datetime.datetime.utcnow()
+
+        self.es.create(index=self.settings.get("ES_INDEX"),
+                       doc_type=self.settings.get("ES_INDEX_TYPE_DEALS"),
+                       body=dict(item))
         return item
 
 
