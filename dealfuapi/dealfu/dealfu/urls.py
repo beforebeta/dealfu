@@ -22,6 +22,6 @@ urlpatterns = patterns('',
     url(r'^admin/', include(admin.site.urls)),
     #the restframework url endpoint
     url(r'^api-auth/', include('rest_framework.urls', namespace='rest_framework')),
-    url(r'api/deals/(?P<pk>\w+)/$', DealsDetailView.as_view(), name="deals_detail"),
+    url(r'api/deals/(?P<pk>[a-zA-Z0-9_\-]+)/$', DealsDetailView.as_view(), name="deals_detail"),
     url(r'api/deals/$', DealsListView.as_view(), name="deals_list"),
 )
