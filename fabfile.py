@@ -1,12 +1,14 @@
 import os
 import sys
 import json
+import time
 
 
 from fabric.api import *
 
 SETTINGS_DIR = "settings"
 PROJECT_DIR = "scrapers/dealfu_groupon/"
+PROJECT_NAME = "dealfu"
 
 def devel():
     _get_conf("devel")
@@ -20,7 +22,7 @@ def production():
 
 
 
-def full_deploy(branch_deploy="develop"):
+def full_deploy(branch_deploy="master"):
     """
     Prepares the remote machine for deployment
     """
@@ -46,11 +48,37 @@ def full_deploy(branch_deploy="develop"):
     #needed for lxml
     _execute("sudo apt-get -y install libxml2-dev libxslt-dev")
 
+    #some base packages neede
+    _execute("sudo apt-get -y install software-properties-common")
+    _execute("sudo apt-get -y install python-software-properties")
+
+
+    #install ES for db access
+    _execute("sudo add-apt-repository ppa:webupd8team/java")
+    _execute("sudo apt-get update")
+    #_execute("sudo apt-get -y install oracle-java7-installer") run manually
+    _execute("java -version")
+
+    _install_es()
+
+
     with _cdir(env.conf.DEPLOY_DIR):
         #now create the virtualenv
         _execute("virtualenv --no-site-packages venv")
         #now clone the code into that directory
+        _execute("git clone %s sjimporter"%(env.conf.GIT_ADDR))
 
+
+def install_es():
+    deb_add = "deb http://packages.elasticsearch.org/elasticsearch/0.90/debian stable main"
+    _execute("echo '%s' | sudo tee -a /etc/apt/sources.list"%deb_add)
+    _execute("sudo apt-get update")
+    _execute("sudo apt-get -y --force-yes install elasticsearch")
+    _execute("sudo service elasticsearch start")
+    time.sleep(2)
+    #test if it works
+    _execute("sudo apt-get install curl")
+    _execute("curl -X GET 'http://localhost:9200'")
 
 
 
@@ -188,6 +216,7 @@ def _get_conf(name):
     conf = __import__("%s.%s"%(SETTINGS_DIR, name), globals(), locals(), [], -1)
     conf = getattr(conf, name)
     env.host_type = conf.HOST_TYPE
+    env.port = conf.PORT
     env.hosts = conf.HOSTS
     env.user = conf.SSH_USER
     env.deploy_dir = conf.DEPLOY_DIR
