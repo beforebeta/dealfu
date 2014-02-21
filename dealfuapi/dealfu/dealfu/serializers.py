@@ -25,6 +25,29 @@ class EsIntegerField(EsFieldMixin, serializers.IntegerField):
     pass
 
 
+class DealMerchantAddress(serializers.Serializer):
+
+    region = serializers.CharField()
+    phone_number = serializers.CharField()
+    address = serializers.CharField()
+    postal_code = serializers.CharField()
+    country_code = serializers.CharField()
+    country = serializers.CharField()
+
+
+class DealMerchantSerializer(serializers.Serializer):
+
+    name = serializers.CharField()
+    url = serializers.CharField()
+    addresses = DealMerchantAddress(many=True)
+
+
+class EsMerchantField(EsFieldMixin, serializers.CharField):
+
+    def field_to_native(self, obj, field_name):
+        native = super(EsMerchantField, self).field_to_native(obj, field_name)
+        return DealMerchantSerializer(instance=native).data
+
 
 class DealSerializer(serializers.Serializer):
 
@@ -52,6 +75,9 @@ class DealSerializer(serializers.Serializer):
     #generate those on items pipeline first
     created_at = EsCharField()
     updated_at = EsCharField()
+
+    merchant = EsMerchantField()
+
 
     def transform_id(self, obj, value):
         """
