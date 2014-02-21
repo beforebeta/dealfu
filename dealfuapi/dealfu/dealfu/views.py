@@ -7,6 +7,45 @@ from rest_framework.views import APIView
 
 from dealfu.serializers import DealSerializer
 
+def get_query_default():
+    return {"query":{
+            "page":1,
+            "per_page":10,
+            "location":{},
+            "radius":10,
+            "online":True,
+            "category_slugs":[],
+            "provider_slugs":[],
+            "updated_after":None}
+        }
+
+
+def update_query_total(d, total):
+    d["query"]["total"] = total
+    return d
+
+def update_query_page(d, page):
+    d["query"]["page"] = page
+    return d
+
+def update_query_per_page(d, per_page):
+    d["query"]["per_page"] = per_page
+    return d
+
+def update_query_location(d, location):
+    d["query"]["location"] = {}
+    return d
+
+def update_query_online(d, online):
+    d["query"]["online"] = online
+    return d
+
+def update_query_category_slugs(d, category_slugs):
+    d["query"]["category_slugs"] = category_slugs
+    return d
+
+
+
 
 def _get_order_lists(order_str):
     """
@@ -37,16 +76,20 @@ class DealsListView(APIView):
         """
         es = EsDealsQuery()
         params = request.QUERY_PARAMS
+        query = get_query_default()
 
         if params.get("query"):
             es = es.filter_query(params.get("query"))
 
         if params.get("online"):
+            query = update_query_online(query, params.get("online"))
             es = es.filter_online(params.get("online"))
 
         if params.get("category_slugs"):
             cs = params.get("category_slugs")
             category_slugs = [c.strip() for c in cs.split(",")]
+            query = update_query_category_slugs(query, category_slugs)
+
             es = es.filter_category_slugs(category_slugs)
 
 
@@ -60,9 +103,11 @@ class DealsListView(APIView):
         per_page = 10
 
         if params.get("page"):
+            query = update_query_page(query, params.get("page"))
             page = int(params.get("page"))
 
         if params.get("per_page"):
+            query = update_query_per_page(query, params.get("per_page"))
             per_page = int(params.get("per_page"))
 
 
@@ -72,8 +117,12 @@ class DealsListView(APIView):
 
 
         docs = es.query
+        query = update_query_total(query, es.total)
+        #print "FINAL_QUERY : ",query
         serializer = DealSerializer(instance=docs, many=True)
-        return Response(serializer.data)
+        data = {"deals":serializer.data}
+        data.update(query)
+        return Response(data)
 
 
 
