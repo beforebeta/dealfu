@@ -74,8 +74,10 @@ class EsDealsQuery(EsHandleMixin):
                                     doc_type=self.doc_type,
                                     body=self._query)
 
-        if result["hits"]["total"] == 0:
+        self.total = result["hits"]["total"]
+        if self.total == 0:
             return []
+
 
         return result["hits"]["hits"]
 
@@ -86,7 +88,7 @@ class EsDealsQuery(EsHandleMixin):
         Resets the query
         """
         self._query = copy(self._default_query)
-
+        self.total = 0
 
     def filter_query(self, query):
         """
