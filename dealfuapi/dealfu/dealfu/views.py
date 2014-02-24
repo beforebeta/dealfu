@@ -1,10 +1,13 @@
-from dealfu.esutils import EsDeals, EsDealsQuery
+from django.contrib.auth.models import AnonymousUser
 from django.http import Http404
+from django.conf import settings
 
+from rest_framework.authentication import BaseAuthentication
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework import exceptions
 
-
+from dealfu.esutils import EsDeals, EsDealsQuery
 from dealfu.serializers import DealSerializer
 
 def get_query_default():
@@ -67,8 +70,24 @@ def _get_order_lists(order_str):
     return asc_list, desc_list
 
 
+class ApiKeyAuth(BaseAuthentication):
+
+    def authenticate(self, request):
+        if not request.QUERY_PARAMS.get("api_key"):
+            raise exceptions.AuthenticationFailed('Api Key required')
+
+        api_key = request.QUERY_PARAMS.get("api_key")
+        if settings.AUTH_KEY != api_key:
+            raise exceptions.AuthenticationFailed('Invalid Api Key')
+
+        return (AnonymousUser(), None)
+
+
+
 
 class DealsListView(APIView):
+
+    authentication_classes = (ApiKeyAuth,)
 
     def get(self, request, format=None):
         """
@@ -129,6 +148,8 @@ class DealsListView(APIView):
 
 
 class DealsDetailView(APIView):
+
+    authentication_classes = (ApiKeyAuth,)
 
     def get(self, request, pk, format=None):
         """
