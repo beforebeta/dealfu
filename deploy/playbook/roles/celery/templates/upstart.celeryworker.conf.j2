@@ -1,0 +1,9 @@
+# simple celerybeat upstart job
+# simple celery worker upstart job
+
+description "{{ project.name }}-celeryworker instance"
+start on runlevel [2345]
+stop on runlevel [06]
+
+
+exec {{ project.virtualenv }}bin/python {{ django.root }}manage.py celery worker --loglevel=INFO --settings=base.settings.live

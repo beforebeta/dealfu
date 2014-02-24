@@ -1,0 +1,13 @@
+---
+# file: loabbalancers.yml
+- name: Gather data about appservers
+  hosts:  appservers
+  gather_facts: yes
+  tasks:
+    - debug: Gather Facts
+
+- name: Configure all frontend loadbalancers
+  hosts: loadbalancers
+  sudo: yes
+  roles:
+    - { role: nginx }

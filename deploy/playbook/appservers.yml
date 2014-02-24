@@ -1,0 +1,14 @@
+---
+# file: appservers.yml
+- name: Gather data about database servers
+  hosts: dbservers
+  gather_facts: yes
+  tasks:
+    - debug: Gather Facts
+
+- name: Configure all application servers
+  hosts: appservers
+  sudo: yes
+  roles:
+  - { role: uwsgi }
+  - { role: django }

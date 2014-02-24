@@ -1,0 +1,25 @@
+[loadbalancers]
+dealfu.dfvops.com ansible_connection=ssh	ansible_ssh_user=root
+
+
+[appservers]
+dealfu.dfvops.com ansible_connection=ssh	ansible_ssh_user=root
+
+
+[webservers]
+dealfu.dfvops.com ansible_connection=ssh	ansible_ssh_user=root migrations=true syncdb=true fixtures=true
+
+
+[dbservers]
+dealfu.dfvops.com ansible_connection=ssh	ansible_ssh_user=root
+
+
+[cacheservers]
+dealfu.dfvops.com ansible_connection=ssh	ansible_ssh_user=root
+
+
+[staging:children]
+dbservers
+cacheservers
+webservers
+loadbalancers

@@ -1,0 +1,2 @@
+host bitbucket.org
+    identityfile ~/.ssh/id_rsa

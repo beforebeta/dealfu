@@ -1,0 +1,25 @@
+---
+- name: Project | Pip | Install Requirements.
+  sudo_user: ${project.user}
+  pip: >
+    requirements=$item
+    virtualenv=${project.virtualenv}
+  with_items: ${project.requirements}
+  tags:
+    - packages
+    - application
+    - pip
+    - app
+
+
+- name: Django | Pip | Install Requirements.
+  sudo_user: ${project.user}
+  pip: >
+    requirements=$item
+    virtualenv=${project.virtualenv}
+  with_items: ${django.requirements}
+  tags:
+    - packages
+    - application
+    - pip
+    - app

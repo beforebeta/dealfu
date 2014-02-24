@@ -1,0 +1,8 @@
+---
+- name: uWsgi | Create log directory
+  file: >
+    dest=${project.root}logs/
+    state=directory
+  tags:
+    - logs
+    - provision

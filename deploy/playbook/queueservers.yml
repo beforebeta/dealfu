@@ -1,0 +1,8 @@
+---
+# file: queueservers.yml
+- name: Configure all MessageQueue servers
+  hosts: queueservers
+  sudo: yes
+  roles:
+    - { role: django }
+    - { role: celery }

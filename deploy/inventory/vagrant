@@ -1,0 +1,24 @@
+[loadbalancers]
+192.168.0.113:2222 ansible_connection=ssh	ansible_ssh_user=vagrant
+
+[appservers]
+192.168.0.113:2222 ansible_connection=ssh	ansible_ssh_user=vagrant
+
+
+[webservers]
+192.168.0.113:2222 ansible_connection=ssh	ansible_ssh_user=vagrant migrations=true syncdb=true fixtures=true
+
+
+[dbservers]
+192.168.0.113:2222 ansible_connection=ssh	ansible_ssh_user=vagrant
+
+[cacheservers]
+192.168.0.113:2222 ansible_connection=ssh	ansible_ssh_user=vagrant
+
+
+[vagrant:children]
+dbservers
+cacheservers
+webservers
+loadbalancers
+

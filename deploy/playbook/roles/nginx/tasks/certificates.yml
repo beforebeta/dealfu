@@ -1,0 +1,30 @@
+---
+- name: Commmon | Create the SSL directory.
+  when: nginx.ssl is defined
+  file: >
+    state=directory
+    path=/etc/nginx/ssl/
+  tags:
+    - configuration
+    - ssl
+    - webserver
+
+- name: Commmon | Upload SSL private key.
+  when: nginx.ssl is defined
+  copy: >
+    src=${nginx.ssl.private}
+    dest=/etc/nginx/ssl/${project.name}-private
+  tags:
+    - configuration
+    - ssl
+    - webserver
+
+- name: Commmon | Upload SSL public key.
+  when: nginx.ssl is defined
+  copy: >
+    src=${nginx.ssl.public}
+    dest=/etc/nginx/ssl/${project.name}-public
+  tags:
+    - configuration
+    - ssl
+    - webserver

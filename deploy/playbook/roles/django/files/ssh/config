@@ -1,0 +1,4 @@
+host github.com
+    identityfile ~/.ssh/id_rsa
+    User makkalot
+    HostName github.com

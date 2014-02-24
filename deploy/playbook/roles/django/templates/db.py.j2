@@ -1,0 +1,43 @@
+# project
+#   __init__.py
+#   manage.py
+#   base/
+#     __init__.py
+#     default.py
+#     live.py
+#     local.py
+#     test.py
+#     modules/
+#       db.py <---- this file.
+
+
+# file: base/settings/test.py
+#  just specify an in memory sqlite database
+#
+# file: base/settings/local.py
+#  just specify a local sqlite database
+#
+# file: base/settings/live.py
+#
+#    from .modules.db import *
+
+
+DATABASES = {
+    'default': {
+        'ENGINE': "{{ database.engine }}",
+        'NAME': "{{ database.name }}",
+        'USER': "{{ database.user }}",
+        'PASSWORD': "{{ database.password }}",
+        {% if not 'dbservers' in group_names %}
+        'HOST': "{{ groups.get('dbservers')[0] }}",
+        'PORT': "{{ database.port }}",
+        {% else %}
+        'HOST': "localhost",
+        'PORT': "",
+        {% endif %}
+    }
+}
+
+SOUTH_DATABASE_ADAPTERS = {
+    'default': 'south.db.postgresql_psycopg2'
+}

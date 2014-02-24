@@ -1,0 +1,18 @@
+# project
+#   __init__.py
+#   manage.py
+#   base/
+#     __init__.py
+#     default.py
+#     live.py
+#     local.py
+#     test.py
+#     modules/
+#       celery.py <---- this file.
+
+{% if not 'queueservers' in group_names %}
+BROKER_URL = "redis://{{ groups.get('queueservers')[0] }}:{{ message_queue.get('redis_port', 6379) }}/{{ message_queue.get('redis_id', 2) }} }}"
+{% else %}
+BROKER_URL = "redis://localhost:{{ message_queue.get('redis_port', 6379) }}/{{ message_queue.get('redis_id', 2)}}"
+{% endif %}
+

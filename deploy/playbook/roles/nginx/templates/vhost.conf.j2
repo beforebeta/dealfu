@@ -1,0 +1,78 @@
+upstream django_{{ project.name }} {
+
+{% if not 'appservers' in group_names  %}
+  ip_hash;
+  {% for host in groups.get('appservers') %}
+    server                  {{ hostvars[host]['ansible_default_ipv4']['address']  }}:{{ django.port }} max_fails=3  fail_timeout=15s;
+  {% endfor %}
+
+{% else %}
+    server                  127.0.0.1:{{ django.port }};
+{% endif %}
+
+}
+
+server {
+
+    listen                  *:{{nginx.listen}};
+
+    {% if nginx.ssl is defined  %}
+    listen                  443 ssl;
+    {% endif %}
+
+    charset                 utf-8;
+    server_tokens           off;
+
+    server_name             {% for name in nginx.servernames %}{{name}} {%endfor%};
+
+    {% if nginx.ssl is defined %}
+    ssl_certificate         /etc/nginx/ssl/{{ project.name }}-public;
+    ssl_certificate_key     /etc/nginx/ssl/{{ project.name }}-private;
+    {% endif %}
+
+
+    access_log              {{ project.root }}logs/nginx.access.{{ ansible_fqdn }}.log;
+    error_log               {{ project.root }}logs/nginx.error.{{ ansible_fqdn }}.log;
+
+    expires modified        -1d;
+
+    rewrite                 ^/(.*)/favicon.ico$ /favicon.ico last;
+
+    location / {
+        # serve static files from defined root folder;.
+        # @{{project.name}} is a named location for the upstream fallback, see below
+        try_files $uri $uri/index.html $uri.html @{{project.name}};
+    }
+
+    location /static/sass/ {
+        deny                all;
+        return              404;
+    }
+    location /static/(*.rb|*) {
+        deny                all;
+        return              404;
+    }
+
+
+    {% if 'appservers' in group_names %}
+    location /static {
+        alias {{ django.root }}assets/;
+        autoindex off;
+    }
+    {% endif %}
+
+    location @{{ project.name }} {
+        proxy_read_timeout          300;
+        proxy_connect_timeout       300;
+        proxy_redirect              off;
+
+        proxy_set_header            X-Forwarded-Proto $scheme;
+        proxy_set_header            Host              $http_host;
+        proxy_set_header            X-Real-IP         $remote_addr;
+
+        uwsgi_pass                  django_{{ project.name }};
+        include                     /etc/nginx/uwsgi_params;
+    }
+
+}
+

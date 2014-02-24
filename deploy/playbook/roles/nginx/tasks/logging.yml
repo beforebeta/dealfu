@@ -1,0 +1,7 @@
+---
+- name: Nginx | Create log directory
+  file: >
+    dest=${project.root}logs/
+    state=directory
+  tags:
+    - webserver

@@ -1,0 +1,27 @@
+---
+- name: Listen on public interface
+  when: not 'appservers' in group_names
+  lineinfile: >
+    dest=/etc/postgresql/9.1/main/postgresql.conf
+    regexp="^listen_addresses"
+    insertafter="^#listen_addresses"
+    line="listen_addresses = '*'"
+  notify: restart postgresql
+
+- name: allow access to appservers
+  when: not 'appservers' in group_names
+  lineinfile: >
+    dest=/etc/postgresql/9.1/main/pg_hba.conf
+    regexp="host ${database.name} ${database.user} ${item}/32 trust"
+    line="host ${database.name} ${database.user} ${item}/32 trust"
+  with_items: groups.get('appservers')
+  notify: restart postgresql
+
+- name: allow access to appservers
+  when: ('appservers' in group_names)
+  lineinfile: >
+    dest=/etc/postgresql/9.1/main/pg_hba.conf
+    regexp="local\s+${database.name}\s+${database.user}\s+trust"
+    line="local ${database.name} ${database.user} trust"
+  with_items: groups.get('appservers')
+  notify: restart postgresql

@@ -1,0 +1,28 @@
+---
+- name: Designate a master node
+# /etc/postgresql/9.1/main/pg_hba.conf
+# wal_level = 'hot_standby'
+# archive_mode = on
+# archive_command = 'cd .'
+# max_wal_senders = 1
+# hot_standby = on
+- name: create replication user
+
+- name: allow slave nodes to access master node
+# for each node in dbservers|filter:is master
+# host    replication     rep     node.ipv4.address/32   md5
+
+- name: allow master access to slave nodes
+# for each node in dbservers|filter:not master
+# host    replication     rep     node.ipv4.address/32  md5
+
+- name: populate slaves with initial database
+# psql -c "select pg_start_backup('initial_backup');"
+# rsync -cva --inplace --exclude=*pg_xlog* /var/lib/postgresql/9.1/main/ slave_IP_address:/var/lib/postgresql/9.1/main/
+# psql -c "select pg_stop_backup();"
+
+- name: create slave recovery config
+# /etc/postgresql/9.1/main/recovery.conf
+# standby_mode = 'on'
+# primary_conninfo = 'host=master_IP_address port=5432 user=rep password=yourpassword'
+# trigger_file = '/tmp/postgresql.trigger.5432'

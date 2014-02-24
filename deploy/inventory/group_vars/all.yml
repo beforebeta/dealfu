@@ -1,0 +1,4 @@
+---
+user:
+    ssh_files: files+'ssh'
+

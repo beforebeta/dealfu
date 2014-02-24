@@ -1,0 +1,24 @@
+# simple uWSGI upstart job
+
+description   "uwsgi tiny instance"
+author        "Zenobius Jiricek <airtonix@gmail.com>"
+
+
+start on runlevel [2345]
+stop on runlevel [06]
+respawn
+
+exec /usr/local/bin/uwsgi \
+  --socket :{{ django.port }} \
+  --logto {{ project.root }}logs/uwsgi.{{ ansible_fqdn }}.log \
+  --home {{ project.virtualenv }} \
+  --env DJANGO_SETTINGS_MODULE={{ django.settings }} \
+  --pythonpath {{ django.root }} \
+  --module {{ django.wsgi }} \
+  --master \
+  --processes 1 \
+{% if not 'loadbalancers' in group_names %}
+  --static-map /static={{ project.root }}public/static \
+  --static-map /files={{ project.root }}public/files \
+{% endif %}
+  --max-requests 1000

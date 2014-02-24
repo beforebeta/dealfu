@@ -1,0 +1,14 @@
+---
+- name: restart celery workers
+  service: name={{project.name}}-celeryworker state={{item}}
+  with_items:
+    - stopped
+    - started
+  sudo_user: root
+
+- name: restart celery beat
+  service: name={{project.name}}-celerybeat state={{item}}
+  with_items:
+    - stopped
+    - started
+  sudo_user: root

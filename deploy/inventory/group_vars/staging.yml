@@ -1,0 +1,40 @@
+---
+project:
+  fqdn: dealfu.dfvops.com
+  name: dealfu
+  user: djangouser
+  group: www-data
+  mode: live
+  root: /var/www/virtualhosts/dealfu/
+  virtualenv: ${project.root}venv/
+  code: ${project.root}code/
+  requirements: ${project.code}requirements.txt
+
+
+repo:
+  url: git@github.com:beforebeta/dealfu.git
+  branch: master
+
+nginx:
+  listen: 80
+  servernames:
+    - "dealfu.dfvops.com"
+
+django:
+  settings: dealfu.settings.staging
+  wsgi: dealfu.wsgi
+  code: ${project.root}code/dealfuapi/
+  root: ${project.root}code/dealfuapi/dealfu/
+  virtualenv: ${project.root}venv/
+  port: 8000
+  requirements: ${django.code}requirements/local.txt
+
+
+#database:
+elasticsearch_version: 0.90.5
+elasticsearch_heap_size: 512m
+elasticsearch_max_open_files: 65535
+elasticsearch_timezone: "America/New_York"
+elasticsearch_node_max_local_storage_nodes: 1
+elasticsearch_index_mapper_dynamic: "true"
+elasticsearch_memory_bootstrap_mlockall: "true"

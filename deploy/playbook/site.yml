@@ -1,0 +1,5 @@
+---
+# file: site.yml
+- include: appservers.yml
+- include: loadbalancers.yml
+- include: dbservers.yml

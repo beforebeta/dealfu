@@ -1,0 +1,21 @@
+---
+- name: Django | Create application user and home.
+  user: >
+    home=${project.root}
+    name=${project.user}
+    groups=www-data
+    state=present
+  tags:
+    - base
+    - user
+    - provision
+    - app
+
+- name: Django | Ssh | Change permissions
+  sudo: true
+  shell: chown -R ${project.user}:${project.user} ${project.root} -R
+  tags:
+    - base
+    - user
+    - provision
+    - app

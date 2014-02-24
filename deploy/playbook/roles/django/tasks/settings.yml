@@ -1,0 +1,38 @@
+---
+- name: Django | Settings | Create Django Database Settings Module
+  sudo_user: ${project.user}
+  template: >
+    src=db.py.j2
+    dest=${django.root}base/settings/modules/db.py
+  tags:
+    - database
+    - configuration
+    - update
+    - app
+
+- name: Django | Settings | Create Django Cache Settings Module
+  when: cache is defined
+  sudo_user: ${project.user}
+  template: >
+    src=cache.py.j2
+    dest=${django.root}base/settings/modules/cache.py
+  tags:
+    - cache
+    - configuration
+    - update
+    - app
+
+- name: Django | Settings | Create Django Celery Settings Module
+  when: message_queue is defined
+  sudo_user: ${project.user}
+  template: >
+    src=celery.py.j2
+    dest=${django.root}base/settings/modules/celery.py
+  tags:
+    - cache
+    - app
+    - configuration
+    - update
+
+
+

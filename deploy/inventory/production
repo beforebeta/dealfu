@@ -1,0 +1,21 @@
+[loadbalancers]
+192.168.0.100
+
+[appservers]
+192.168.0.100 migrate=true syncdb=true fixtures=true
+
+[queueservers]
+192.168.0.100
+
+[dbservers]
+192.168.0.100
+
+[cacheservers]
+192.168.0.100
+
+[production:children]
+cacheservers
+dbservers
+appservers
+loadbalancers
+queueservers
