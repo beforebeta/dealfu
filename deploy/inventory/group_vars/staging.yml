@@ -30,6 +30,11 @@ django:
   requirements: ${django.code}requirements/local.txt
 
 
+scrappers:
+  root: ${project.code}/scrappers/dealfu_groupon/
+  resources: ${scappers.root}resources
+
+
 #database:
 elasticsearch_version: 0.90.5
 elasticsearch_heap_size: 512m
