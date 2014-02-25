@@ -54,6 +54,7 @@ class EsDealsQuery(EsHandleMixin):
         self.index = settings.ES_INDEX
         self.doc_type = settings.ES_INDEX_TYPE_DEALS
         self.handle = self.get_es_handle()
+        self.total = 0
 
         self._default_query = {
             "query":{
@@ -148,6 +149,8 @@ class EsDealsQuery(EsHandleMixin):
         """
         self._query["from"]= page
         self._query["size"] = per_page
+
+        print self._query
 
         return self
 
