@@ -71,8 +71,3 @@ DEBUG_TOOLBAR_CONFIG = {
 #ES_SETTINGS
 ES_SERVER = "192.168.0.113"
 ES_PORT = "9200"
-
-#ES index information
-ES_INDEX = "dealfu"
-ES_INDEX_TYPE_DEALS = "deal"
-ES_INDEX_TYPE_CATEGORY = "category"
