@@ -1,6 +1,4 @@
 """Common settings and globals."""
-
-
 from os.path import abspath, basename, dirname, join, normpath
 from sys import path
 
@@ -200,6 +198,7 @@ THIRD_PARTY_APPS = (
 
 # Apps specific for this project go here.
 LOCAL_APPS = (
+    'dealfu',
 )
 
 # See: https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
@@ -247,3 +246,8 @@ WSGI_APPLICATION = '%s.wsgi.application' % SITE_NAME
 
 ######### REST AUTH KEY
 AUTH_KEY = "v3r1s3cret"
+
+#ES index information
+ES_INDEX = "dealfu"
+ES_INDEX_TYPE_DEALS = "deal"
+ES_INDEX_TYPE_CATEGORY = "category"
