@@ -1,0 +1,32 @@
+---
+- name: Service |  Playbook  |  WebServers
+  hosts: appservers
+  tasks:
+    - name: "restart nginx service"
+      service: >
+        name=nginx
+        state=restarted
+
+
+    - name: "restart uwsgi service"
+      service: >
+        name={{project.name}}-uwsgi
+        state=restarted
+
+  tags:
+    - srvreset
+    - webserver
+
+
+- name: Service |  Playbook  |  DbServers
+  hosts: dbservers
+  tasks:
+    - name: "restart elasticsearch service"
+      service: >
+        name=elasticsearch
+        state=restarted
+  tags:
+    - srvreset
+    - elastic
+
+

@@ -1,0 +1,28 @@
+---
+- name: Django |  Playbook  | Validate
+  hosts: appservers
+  sudo_user: ${project.user}
+  tasks:
+    - name: "check if everything is ok"
+      django_manage: >
+        command=validate
+        app_path=${django.root}
+        settings=${django.settings}
+        virtualenv=${project.virtualenv}
+  tags:
+    - djvalidate
+
+
+- name: Django |  Playbook  | Syncdb
+  hosts: appservers
+  sudo_user: ${project.user}
+  tasks:
+    - name: "sync the db if anything new"
+      django_manage: >
+        command=syncdb
+        app_path=${django.root}
+        settings=${django.settings}
+        virtualenv=${project.virtualenv}
+  tags:
+    - djsyncdb
+
