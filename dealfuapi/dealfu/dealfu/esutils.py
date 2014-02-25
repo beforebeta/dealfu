@@ -69,7 +69,7 @@ class EsDealsQuery(EsHandleMixin):
 
     @property
     def query(self):
-        print "QUERYYYYYYYYY ",self._query
+        #print "QUERYYYYYYYYY ",self._query
         result = self.handle.search(index=self.index,
                                     doc_type=self.doc_type,
                                     body=self._query)
