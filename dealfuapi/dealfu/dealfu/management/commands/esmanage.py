@@ -58,7 +58,7 @@ class Command(BaseCommand):
             self.stdout.write("Index Created for : %s"%index)
 
 
-        if not os.path.exists(mapping_path):
+        if not mapping_path or not os.path.exists(mapping_path):
             raise CommandError("not existing mapping path")
 
         mapping_str = open(mapping_path, "r").read()
@@ -66,7 +66,8 @@ class Command(BaseCommand):
 
 
         for k,v in mappings.iteritems():
-            self.stdout.write(esi.put_mapping(index, k, {k:mappings[k]}))
+            res = esi.put_mapping(index, k, {k:mappings[k]})
+            self.stdout.write(str(res))
 
 
 
