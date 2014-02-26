@@ -59,6 +59,10 @@ class DealfuItem(Item):
     provider_name = Field()
     provider_slug = Field()
 
+    #creation information
+    created_at = Field()
+    updated_at = Field()
+
     #ref to MerchantItem
     merchant = Field()
 

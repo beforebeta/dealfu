@@ -25,7 +25,7 @@ class EsPipeLine(object):
         #ser = json.dumps(dict(item))
         #res = json.loads(ser)
 
-        item = dict(item)
+        item = item
         item["created_at"] = datetime.datetime.utcnow()
         item["updated_at"] = datetime.datetime.utcnow()
 
