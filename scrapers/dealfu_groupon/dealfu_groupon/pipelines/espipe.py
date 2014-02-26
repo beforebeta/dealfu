@@ -4,6 +4,8 @@ from scrapy.exceptions import DropItem
 
 import elasticsearch
 
+from dealfu_groupon.utils import check_spider_pipeline
+
 
 class EsPipeLine(object):
     """
@@ -18,6 +20,7 @@ class EsPipeLine(object):
         self.es = self._get_es(self.settings)
 
 
+    @check_spider_pipeline
     def process_item(self, item, spider):
         """
         Insert item into database or just drop it if not handled
@@ -25,7 +28,6 @@ class EsPipeLine(object):
         #ser = json.dumps(dict(item))
         #res = json.loads(ser)
 
-        item = item
         item["created_at"] = datetime.datetime.utcnow()
         item["updated_at"] = datetime.datetime.utcnow()
 

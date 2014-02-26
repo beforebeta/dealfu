@@ -5,8 +5,13 @@ import urlparse
 import urllib
 import json
 import re
+import functools
+import logging
 
 from dealfu_groupon.items import MerchantItem, MerchantAddressItem
+
+
+import elasticsearch
 
 def get_fresh_merchant_address():
     """
@@ -167,3 +172,39 @@ def clean_float_values(sfloat, *clean_lst):
     sfloat = res.group(1)
     return float(sfloat.strip())
 
+
+#ES UTILS
+def get_es(settings):
+    """
+    Gets an ES handle
+    """
+    d = {
+        "host":settings.get("ES_SERVER"),
+        "port":settings.get("ES_PORT")
+    }
+
+    return elasticsearch.Elasticsearch(hosts=[d])
+
+
+#scrappy utils
+def check_spider_pipeline(process_item_method):
+
+    @functools.wraps(process_item_method)
+    def wrapper(self, item, spider):
+
+        # message template for debugging
+        msg = '%%s %s pipeline step' % (self.__class__.__name__,)
+
+        # if class is in the spider's pipeline, then use the
+        # process_item method normally.
+        if self.__class__ in spider.pipeline:
+            spider.log(msg % 'executing', level=logging.DEBUG)
+            return process_item_method(self, item, spider)
+
+        # otherwise, just return the untouched item (skip this step in
+        # the pipeline)
+        else:
+            spider.log(msg % 'skipping', level=logging.DEBUG)
+            return item
+
+    return wrapper
