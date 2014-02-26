@@ -17,6 +17,13 @@ class EsHandleMixin(object):
         return elasticsearch.Elasticsearch(hosts=[d])
 
 
+    @property
+    def handle(self):
+        """
+        The default implementation
+        """
+        return self.get_es_handle()
+
 
 class EsDeals(EsHandleMixin):
 
@@ -46,31 +53,27 @@ class EsDeals(EsHandleMixin):
                                   doc_type=self.doc_type)
 
 
+class EsBaseQueryMixin(object):
+    """
+    The base query class
 
-class EsDealsQuery(EsHandleMixin):
-
-    def __init__(self):
-
-        self.index = settings.ES_INDEX
-        self.doc_type = settings.ES_INDEX_TYPE_DEALS
-        self.handle = self.get_es_handle()
-        self.total = 0
-
-        self._default_query = {
-            "query":{
-                "filtered":{
-                    "query":{
-                        "match_all":{}
-                    }
-                }
-            }
-        }
-
-        self._query = copy(self._default_query)
-
+    It is mixed in something that has
+    @index
+    @doc_type
+    @_query : this is the internal structure of search query
+    @total
+    @handle
+    """
     @property
     def query(self):
         #print "QUERYYYYYYYYY ",self._query
+        return self.fetch()
+
+
+    def fetch(self):
+        """
+        That seems to be a better name for getting data
+        """
         result = self.handle.search(index=self.index,
                                     doc_type=self.doc_type,
                                     body=self._query)
@@ -83,6 +86,79 @@ class EsDealsQuery(EsHandleMixin):
         return result["hits"]["hits"]
 
 
+    def filter_page(self, page=0, per_page=10):
+        """
+        Filters per page
+        """
+        self._query["from"]= page
+        self._query["size"] = per_page
+
+        #print self._query
+
+        return self
+
+
+    def order_by(self, asc_list, desc_list):
+        """
+        Orders the query by supplied parameters
+        """
+        asc_sorts = [{o:"asc"} for o in asc_list]
+        desc_sorts = [{o:"desc"} for o in desc_list]
+
+        sort_dict = {"sort" : asc_sorts + desc_sorts}
+        self._query.update(sort_dict)
+
+        return self
+
+
+
+class EsDealCategoryQuery(EsHandleMixin, EsBaseQueryMixin):
+    """
+    The deals query
+    """
+    index = settings.ES_INDEX
+    doc_type = settings.ES_INDEX_TYPE_CATEGORY
+
+
+    def __init__(self):
+        """
+        Init some of the data
+        maybe we should move more to the base class ?
+        """
+        self.total = 0
+        self._default_query = {
+
+            "query":{
+                "match_all":{}
+            }
+
+        }
+
+        self._query = copy(self._default_query)
+
+
+
+class EsDealsQuery(EsHandleMixin, EsBaseQueryMixin):
+
+    index = settings.ES_INDEX
+    doc_type = settings.ES_INDEX_TYPE_DEALS
+
+    def __init__(self):
+
+        self.total = 0
+        self._default_query = {
+            "query":{
+                "filtered":{
+                    "query":{
+                        "match_all":{}
+                    }
+                }
+            }
+        }
+
+        self._query = copy(self._default_query)
+
+
 
     def reset(self):
         """
@@ -90,6 +166,7 @@ class EsDealsQuery(EsHandleMixin):
         """
         self._query = copy(self._default_query)
         self.total = 0
+
 
     def filter_query(self, query):
         """
@@ -143,16 +220,6 @@ class EsDealsQuery(EsHandleMixin):
         return self
 
 
-    def filter_page(self, page=0, per_page=10):
-        """
-        Filters per page
-        """
-        self._query["from"]= page
-        self._query["size"] = per_page
-
-        print self._query
-
-        return self
 
     def _get_filter_bool(self):
         """
@@ -166,20 +233,6 @@ class EsDealsQuery(EsHandleMixin):
 
         boolq = filtered["filter"]["bool"]
         return boolq
-
-
-    def order_by(self, asc_list, desc_list):
-        """
-        Orders the query by supplied parameters
-        """
-        asc_sorts = [{o:"asc"} for o in asc_list]
-        desc_sorts = [{o:"desc"} for o in desc_list]
-
-        sort_dict = {"sort" : asc_sorts + desc_sorts}
-        self._query.update(sort_dict)
-
-        return self
-
 
 
 
