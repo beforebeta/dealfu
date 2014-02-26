@@ -3,6 +3,7 @@ import json
 from scrapy.spider import Spider
 
 from dealfu_groupon.items import DealCategoryItem
+from dealfu_groupon.pipelines import catpipe
 
 
 class GrouponCategorySpider(Spider):
@@ -12,6 +13,8 @@ class GrouponCategorySpider(Spider):
     start_urls = [
         "http://www.groupon.com/browse/deals/partial?lat=40.7143528&lng=-74.0059731&address=New+York%2C+NY%2C+USA&query=new&locale=en_US&division=new-york&isRefinementBarDisplayed=true&facet_group_filters=topcategory%7Ccategory%7Ccategory2%7Ccategory3%3Bdeal_type%3Bcity%7Cneighborhood&page=2"
     ]
+
+    pipeline = set([catpipe.CatPipeLine])
 
 
     def parse(self, response):
