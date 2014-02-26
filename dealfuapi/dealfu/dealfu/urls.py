@@ -1,7 +1,7 @@
 from django.conf.urls import patterns, include, url
 from django.views.generic import TemplateView
 
-from dealfu.views import DealsDetailView, DealsListView
+from dealfu.views import DealsDetailView, DealsListView, DealsCategoryListView
 
 # Uncomment the next two lines to enable the admin:
 from django.contrib import admin
@@ -24,4 +24,5 @@ urlpatterns = patterns('',
     url(r'^api-auth/', include('rest_framework.urls', namespace='rest_framework')),
     url(r'api/deals/(?P<pk>[a-zA-Z0-9_\-]+)/$', DealsDetailView.as_view(), name="deals_detail"),
     url(r'api/deals/$', DealsListView.as_view(), name="deals_list"),
+    url(r'api/categories/$', DealsCategoryListView.as_view(), name="deals_cat_list"),
 )

@@ -7,10 +7,14 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import exceptions
 
-from dealfu.esutils import EsDeals, EsDealsQuery
-from dealfu.serializers import DealSerializer
+from dealfu.esutils import EsDeals, EsDealsQuery, EsDealCategoryQuery
+from dealfu.serializers import DealSerializer, DealsCategorySerializer
+
 
 def get_query_default():
+    """
+    TODO move those stats into some of the query classes !
+    """
     return {"query":{
             "page":1,
             "per_page":10,
@@ -135,7 +139,7 @@ class DealsListView(APIView):
                             per_page=per_page)
 
 
-        docs = es.query
+        docs = es.fetch()
         query = update_query_total(query, es.total)
         #print "FINAL_QUERY : ",query
         serializer = DealSerializer(instance=docs, many=True)
@@ -163,3 +167,43 @@ class DealsDetailView(APIView):
         doc = es.get(pk)
         serializer = DealSerializer(instance=doc)
         return Response(serializer.data)
+
+
+class DealsCategoryListView(APIView):
+    authentication_classes = (ApiKeyAuth,)
+
+
+    def get(self, request, format=None):
+        """
+        Gets a list of the deals from db
+        """
+        es = EsDealCategoryQuery()
+        params = request.QUERY_PARAMS
+
+
+        if params.get("order"):
+            asc, desc = _get_order_lists(params.get("order"))
+            es = es.order_by(asc, desc)
+
+        #put those in settings
+        page = 0
+        per_page = 10
+
+        if params.get("page"):
+            page = int(params.get("page"))
+
+        if params.get("per_page"):
+            per_page = int(params.get("per_page"))
+
+
+        #the pagination will be here !
+        es = es.filter_page(page=page,
+                            per_page=per_page)
+
+
+        docs = es.fetch()
+        #print "FINAL_QUERY : ",query
+        serializer = DealsCategorySerializer(instance=docs, many=True)
+        data = {"categories":serializer.data}
+        #data.update(query)
+        return Response(data)

@@ -85,3 +85,27 @@ class DealSerializer(serializers.Serializer):
         """
         return obj.get("_id")
 
+
+
+class DealsCategoryItemSerializer(serializers.Serializer):
+    """
+    The category list
+    """
+    parent_slug = EsCharField()
+    name = EsCharField()
+    slug = EsCharField()
+
+
+class EsCategoryField(EsFieldMixin, serializers.CharField):
+    """
+    Because we have to wrap every category in "category"
+    field in reponse we have to do that here !
+    """
+    def field_to_native(self, obj, field_name):
+        return DealsCategoryItemSerializer(instance=obj).data
+
+
+class DealsCategorySerializer(serializers.Serializer):
+
+    category = EsCategoryField()
+
