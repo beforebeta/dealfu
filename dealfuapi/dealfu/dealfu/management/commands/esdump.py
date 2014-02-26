@@ -3,6 +3,7 @@ from dealfu.esutils import EsDealsQuery
 
 from django.core.management.base import BaseCommand, CommandError
 from django.conf import settings
+from django.utils.text import slugify
 
 import xlsxwriter
 
@@ -12,6 +13,83 @@ class Command(BaseCommand):
     """
     Es Dump Management
     """
+
+    column_names = [
+            "category_name",
+            "category_id",
+            "parent_cat_name",
+            "parent_cat_id",
+            "coupon_pk",
+            "sqoot_ref_id",
+            "ref_id_source",
+            "online",
+            "merchant_pk",
+            "dealtypes",
+            "description",
+            "restrictions",
+            "code",
+            "start",
+            "end",
+            "link",
+            "directlink",
+            "skimlinks",
+            "status",
+            "lastupdated",
+            "created",
+            "countries",
+            "coupon_network",
+            "price",
+            "listprice",
+            "discount",
+            "percent",
+            "image",
+            "short_desc",
+            "desc_slug",
+            "is_featured",
+            "is_new",
+            "is_popular",
+            "is_duplicate",
+            "is_active",
+            "is_deleted",
+            "related_deal",
+            "popularity",
+            "coupon_type",
+            "embedly_title",
+            "embedly_description",
+            "embedly_image_url",
+            "ml_pk",
+            "ml_name",
+            "ml_address",
+            "ml_locality",
+            "ml_region",
+            "ml_zip",
+            "ml_lng",
+            "ml_lat"
+        ]
+
+    merchant_column_names = [
+            "merchant_pk",
+            "sqoot_ref_id",
+            "ref_id_source",
+            "name",
+            "name_slug",
+            "image",
+            "description",
+            "coupon_count",
+            "total_coupon_count",
+            "link",
+            "directlink",
+            "skimlinks",
+            "redirect",
+            "is_deleted",
+            "date_added",
+            "last_modified",
+            "use_skimlinks",
+            "is_featured",
+            "popularity",
+            "similar",
+            "navigation_section"
+        ]
 
     option_list = BaseCommand.option_list + (
         make_option('--output-format',
@@ -70,72 +148,40 @@ class Command(BaseCommand):
         Gets a EsDealsQuery and dumps to a xlsx file
         """
         workbook = xlsxwriter.Workbook(outfile,{'constant_memory': True})
-        worksheet = workbook.add_worksheet("coupons")
 
+        worksheet = workbook.add_worksheet("coupons")
+        worksheet.strings_to_urls = False
+
+        merchant_worksheet = workbook.add_worksheet("merchants")
+        merchant_worksheet.strings_to_urls = False
 
         #self.stdout.write(str(res))
         #now lets store some data into xlsx
-        column_names = [
-            "category_name",
-            "category_id",
-            "parent_cat_name",
-            "parent_cat_id",
-            "coupon_pk",
-            "sqoot_ref_id",
-            "ref_id_source",
-            "online",
-            "merchant_pk",
-            "dealtypes",
-            "description",
-            "restrictions",
-            "code",
-            "start",
-            "end",
-            "link",
-            "directlink",
-            "skimlinks",
-            "status",
-            "lastupdated",
-            "created",
-            "countries",
-            "coupon_network",
-            "price",
-            "listprice",
-            "discount",
-            "percent",
-            "image",
-            "short_desc",
-            "desc_slug",
-            "is_featured",
-            "is_new",
-            "is_popular",
-            "is_duplicate",
-            "is_active",
-            "is_deleted",
-            "related_deal",
-            "popularity",
-            "coupon_type",
-            "embedly_title",
-            "embedly_description",
-            "embedly_image_url",
-            "ml_pk",
-            "ml_address",
-            "ml_locality",
-            "ml_region",
-            "ml_zip",
-            "ml_lng",
-            "ml_lat"
-        ]
 
-        for i, c in enumerate(column_names):
+        #write first the deals column names
+        for i, c in enumerate(self.column_names):
             worksheet.write(0, i, c)
+
+
+        #write the merchant column names
+        for i, c in enumerate(self.merchant_column_names):
+            merchant_worksheet.write(0, i, c)
 
 
         for page, q in enumerate(self._iter_query(query)):
             for row, item in enumerate(q):
-                xls_item = self._convert_dbitem_to_xlsitem(item["_source"], item["_id"], column_names)
+                xls_item = self._convert_dbitem_to_xlsitem(item["_source"],
+                                                           item["_id"],
+                                                           self.column_names)
+
+                merchant_xls_item = self._convert_dbitem_to_merchant_xlsitem(item["_source"].get("merchant"),
+                                                                             self.merchant_column_names)
                 for c, x in enumerate(xls_item):
                     worksheet.write((page*100)+row+1, c, x)
+
+                if merchant_xls_item:
+                    for c, x in enumerate(merchant_xls_item):
+                        merchant_worksheet.write((page*100)+row+1, c, x)
 
         workbook.close()
 
@@ -167,6 +213,45 @@ class Command(BaseCommand):
 
 
         return self._apply_dict_to_xls_item(default_dict, colnames, xls_item)
+
+
+    def _get_default_merchant_xls_item(self, colnames):
+        xls_item = ["n/a" for c in colnames]
+
+        default_dict = {
+            "coupon_count":0,
+            "total_coupon_count":0,
+            "is_deleted":"FALSE",
+            "use_skimlinks":"FALSE",
+            "is_featured":"FALSE",
+            "popularity":0,
+        }
+
+        return self._apply_dict_to_xls_item(default_dict, colnames, xls_item)
+
+
+
+    def _convert_dbitem_to_merchant_xlsitem(self, dbitem, colnames):
+        """
+        converts a db item into xls item
+        """
+        fresh_xls_item = self._get_default_merchant_xls_item(colnames)
+
+        xls_item = {}
+
+        if not dbitem:
+            return None
+
+
+        xls_item["name"] = dbitem.get("name", "n/a")
+        if dbitem.get("name"):
+            xls_item["name_slug"] = slugify(xls_item["name"])
+
+        xls_item["link"] = dbitem.get("url", "n/a")
+        xls_item["directlink"] = dbitem.get("url", "n/a")
+
+
+        return self._apply_dict_to_xls_item(xls_item, colnames, fresh_xls_item)
 
 
 
@@ -218,5 +303,7 @@ class Command(BaseCommand):
             xls_item["ml_zip"] = addresses[0].get("postal_code", "n/a")
         else:
             xls_item["ml_zip"] = "n/a"
+        if merchant:
+            xls_item["ml_name"] = merchant.get("name", "n/a")
 
         return self._apply_dict_to_xls_item(xls_item, colnames, fresh_xls_item)
