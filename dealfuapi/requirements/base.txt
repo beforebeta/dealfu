@@ -6,3 +6,5 @@ django-braces==1.2.2
 django-model-utils==1.4.0
 logutils==0.3.3
 South==0.8.1
+#the queueing mechanism
+rq==0.3.13
