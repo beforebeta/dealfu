@@ -13,7 +13,8 @@ NEWSPIDER_MODULE = 'dealfu_groupon.spiders'
 
 ITEM_PIPELINES = {
     "dealfu_groupon.pipelines.espipe.EsPipeLine":300,
-    "dealfu_groupon.pipelines.catpipe.CatPipeLine":400
+    "dealfu_groupon.pipelines.catpipe.CatPipeLine":400,
+    "dealfu_groupon.pipelines.retrypipe.RetryPipeLine":500
 }
 
 
