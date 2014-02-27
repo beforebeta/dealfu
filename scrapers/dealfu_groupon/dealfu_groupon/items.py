@@ -31,6 +31,9 @@ class MerchantItem(Item):
 
 class DealfuItem(Item):
 
+    #Only set sometimes when, we retry some given url
+    #generally you should ignore it!!!
+    id = Field()
     untracked_url = Field()
     online = Field()
 
