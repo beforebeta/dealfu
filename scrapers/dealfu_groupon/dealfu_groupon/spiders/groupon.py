@@ -20,23 +20,33 @@ class GrouponSpider(Spider):
     name = "groupon"
     allowed_domains = ["groupon.com"]
 
-    #only work with those pipelines
+    #only work with those pipelines by default
     pipeline = set([
         espipe.EsPipeLine
     ])
 
 
-    def __init__(self, division_path=None, only_one_page=False, *args, **kw):
+    def __init__(self, division_path=None, only_one_page=False,
+                 only_one_deal=False, pipeline=None, one_url=None,
+                 doc_id=None, *args, **kw):
         super(GrouponSpider, self).__init__(*args, **kw)
 
         self.only_one_page = only_one_page
+        self.only_one_deal  = only_one_deal
+        self.doc_id = doc_id #that only makes sense when it is a retry !!!
+
+        if pipeline:
+            self.pipeline = pipeline if isinstance(pipeline, list) or isinstance(pipeline, set) else set([pipeline])
 
         if not division_path:
-            #put it to start with los-angeles
-            self.start_urls = [
-                "https://www.groupon.com/browse/deals/partial?division=los-angeles&isRefinementBarDisplayed=true&facet_group_filters=topcategory%7Ccategory%7Ccategory2%7Ccategory3%3Bdeal_type%3Bcity%7Cneighborhood&page=1"
-            ]
-            #print "START URLS : ",self.start_urls
+            if not self.only_one_deal:
+                #put it to start with los-angeles
+                self.start_urls = [
+                    "https://www.groupon.com/browse/deals/partial?division=los-angeles&isRefinementBarDisplayed=true&facet_group_filters=topcategory%7Ccategory%7Ccategory2%7Ccategory3%3Bdeal_type%3Bcity%7Cneighborhood&page=1"
+                ]
+            else:
+                #if it is only one deal we should go from here and parse only it
+                self.start_urls = [one_url]
         else:
             #set the start urls from the file supplied
             start_s = "https://www.groupon.com/browse/deals/partial?division={}&isRefinementBarDisplayed=true&facet_group_filters=topcategory%7Ccategory%7Ccategory2%7Ccategory3%3Bdeal_type%3Bcity%7Cneighborhood&page=1"
@@ -51,8 +61,14 @@ class GrouponSpider(Spider):
         @param response:
         @return:
         """
-        yield Request(response.url,
-                      callback=self._parse_pagination)
+        if not self.only_one_deal:
+            #if wee need get whole list go from here
+            yield Request(response.url,
+                          callback=self._parse_pagination)
+        else:
+            #if we need only one deal just go from here
+            yield Request(response.url,
+                          callback=self.parse_deal)
 
 
     def _parse_pagination(self, response):
@@ -114,6 +130,9 @@ class GrouponSpider(Spider):
         """
         sel = Selector(response)
         d = DealfuItem()
+        if self.doc_id:
+            d["id"] = self.doc_id
+
 
         #the url of the deal
         d["untracked_url"] = response.url
