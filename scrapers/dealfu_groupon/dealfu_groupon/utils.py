@@ -193,14 +193,18 @@ def check_spider_pipeline(process_item_method):
     def wrapper(self, item, spider):
 
         # message template for debugging
-        msg = '%%s %s pipeline step' % (self.__class__.__name__,)
+        clsname = self.__class__.__name__
+        msg = '%%s %s pipeline step' % (clsname,)
 
         # if class is in the spider's pipeline, then use the
         # process_item method normally.
-        if self.__class__ in spider.pipeline:
-            spider.log(msg % 'executing', level=logging.DEBUG)
-            return process_item_method(self, item, spider)
+        pipelines = list(spider.pipeline)
 
+        if self.__class__ in pipelines:
+            return process_item_method(self, item, spider)
+        elif isinstance(pipelines[0], basestring) and any([p for p in pipelines if clsname in p]):
+            #we sometimess pass whole qualified name to module
+            return process_item_method(self, item, spider)
         # otherwise, just return the untouched item (skip this step in
         # the pipeline)
         else:
