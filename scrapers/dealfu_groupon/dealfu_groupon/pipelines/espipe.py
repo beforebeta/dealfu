@@ -1,15 +1,13 @@
 import datetime
+from copy import copy
 
-from scrapy.exceptions import DropItem
-
-import elasticsearch
-
-from dealfu_groupon.utils import check_spider_pipeline
+from dealfu_groupon.utils import check_spider_pipeline, get_es
 
 
 class EsPipeLine(object):
     """
     Generally inserts data into ES
+    and maybe something more ?
     """
 
     def open_spider(self, spider):
@@ -17,7 +15,7 @@ class EsPipeLine(object):
         Here will initialize some the data
         """
         self.settings = spider.settings
-        self.es = self._get_es(self.settings)
+        self.es = get_es(self.settings)
 
 
     @check_spider_pipeline
@@ -31,20 +29,12 @@ class EsPipeLine(object):
         item["created_at"] = datetime.datetime.utcnow()
         item["updated_at"] = datetime.datetime.utcnow()
 
+        #we don't need that part here !
+        copy_item = copy(dict(item))
+        copy_item.pop("id")
+
+
         self.es.create(index=self.settings.get("ES_INDEX"),
                        doc_type=self.settings.get("ES_INDEX_TYPE_DEALS"),
-                       body=dict(item))
+                       body=copy_item)
         return item
-
-
-
-    def _get_es(self, settings):
-        """
-        Gets an ES handle
-        """
-        d = {
-            "host":settings.get("ES_SERVER"),
-            "port":settings.get("ES_PORT")
-        }
-
-        return elasticsearch.Elasticsearch(hosts=[d])
