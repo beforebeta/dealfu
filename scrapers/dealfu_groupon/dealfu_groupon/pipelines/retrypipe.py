@@ -25,6 +25,8 @@ class RetryPipeLine(object):
         """
         Retry specified the specified item
         """
-
+        result = self.es.get(index=self.settings.get("ES_INDEX"),
+                    doc_type=self.settings.get("ES_INDEX_TYPE_DEALS"),
+                    id=item["id"])['_source']
         spider.log("RETRY ITEM : %s "%item["id"], log.INFO)
         return item
