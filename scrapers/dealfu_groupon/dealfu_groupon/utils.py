@@ -186,6 +186,64 @@ def get_es(settings):
     return elasticsearch.Elasticsearch(hosts=[d])
 
 
+
+def needs_retry(item):
+    """
+    Method checks the given item if it should be
+    re-parsed or not. Basically the mandatory fields are :
+
+    -category_name
+    -category_slug
+    -description
+    -title
+    -short_title
+    -merchant.name
+    -merchant.address
+
+    or we need any of those :
+
+    - price
+    - discount_amount
+    - discount_percentage
+    """
+
+    mandatory = ("category_name",
+                "category_slug",
+                "description",
+                "title",
+                "short_title",
+                "merchant",)
+
+    merchant_mandatory = (
+        "name",
+        "addresses",
+    )
+
+    optional = (
+        "price",
+        "discount_amount",
+        "discount_percentage",
+    )
+
+    if any([False if item.get(f) else True for f in mandatory]):
+        return True
+
+    merchant = item.get("merchant")
+    if any([False if merchant.get(f) else True for f in merchant_mandatory]):
+        return True
+
+    #now check if we have at least the address
+    if not merchant.get("addresses")[0].get("address"):
+        return True
+
+    #check the optional pieces here
+    if not any([True if item.get(f) else False for f in optional]):
+        return True
+
+    return False
+
+
+
 #scrappy utils
 def check_spider_pipeline(process_item_method):
 
