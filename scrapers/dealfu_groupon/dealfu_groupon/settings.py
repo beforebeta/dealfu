@@ -20,7 +20,7 @@ ITEM_PIPELINES = {
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
 #USER_AGENT = 'dealfu_groupon (+http://www.yourdomain.com)'
-DOWNLOAD_DELAY = 0.50    # 250? ms of delay
+DOWNLOAD_DELAY = 0.25    # 250? ms of delay
 
 #ES_SETTINGS
 ES_SERVER = "192.168.0.113"
@@ -31,4 +31,10 @@ ES_INDEX = "dealfu"
 ES_INDEX_TYPE_DEALS = "deal"
 ES_INDEX_TYPE_CATEGORY = "category"
 
-
+#REDIS QUEUE PARAMETERS
+REDIS_DEFAULT_QUEUE = "default"
+REDIS_HOST = "192.168.0.113"
+REDIS_PORT = 6379
+REDIS_RETRY_PREFIX = "scrapy:retry:%s"
+REDIS_RETRY_COUNT = 4
+REDIS_RETRY_DELAY = 20 #seconds to wait after we start retrying
