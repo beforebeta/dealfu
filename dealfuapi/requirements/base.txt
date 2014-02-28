@@ -8,3 +8,5 @@ logutils==0.3.3
 South==0.8.1
 #the queueing mechanism
 rq==0.3.13
+#the rq-scheduler package
+rq-scheduler==0.4.0
