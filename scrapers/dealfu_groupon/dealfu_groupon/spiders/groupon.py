@@ -7,12 +7,15 @@ from scrapy.http import Request
 from scrapy.spider import Spider
 from scrapy.selector import Selector
 from dateutil.relativedelta import relativedelta
+#for page that require JS
+from selenium import webdriver
 
 from dealfu_groupon.items import DealfuItem, MerchantItem
 from dealfu_groupon.utils import get_fresh_merchant_address, get_short_region_name, get_first_from_xp, extract_query_params, replace_query_param, \
     iter_divisions, clean_float_values
 
 from dealfu_groupon.pipelines import espipe
+from selenium.common.exceptions import NoSuchElementException
 
 
 class GrouponSpider(Spider):
@@ -266,12 +269,15 @@ class GrouponSpider(Spider):
         """
         sel = Selector(response)
         d = {}
+        d["commission"] = 0
+
         #price info
         purchase_block = sel.xpath('//div[@id="purchase-cluster"]')
         if purchase_block:
             price = get_first_from_xp(purchase_block.xpath('.//span[@class="price"]/text()'))
             if price:
                 d["price"] = clean_float_values(price, "$", ",")
+
 
             discount_xp = sel.xpath('//div[@id="purchase-cluster"]//tr[@id="discount-data"]')
             if discount_xp:
@@ -288,10 +294,50 @@ class GrouponSpider(Spider):
                 if value:
                     d["value"] = clean_float_values(value, "$", ",")
 
-        d["commission"] = 0
+        #it maybe a different kind of page so, try that requires JS
+        #if not d.get("value") or not d.get("price"):
+        #    return self._extract_price_selenium(response)
+
 
         return d
 
+
+    def _extract_price_selenium(self, response):
+        """
+        CAUTION that will block the whole process !!!
+        """
+        d = {}
+        d["commission"] = 0
+
+        url = response.url
+        driver = webdriver.PhantomJS()
+        driver.get(url)
+
+        try:
+            price_el = driver.find_element_by_xpath('//div[@id="purchase-cluster"]//div[@class="from-minimum"]')
+            val_el = driver.find_element_by_xpath('//div[@id="purchase-cluster"]//div[@class="market-minimum"]')
+
+            price_txt = price_el.text
+            val_txt = val_el.text
+
+            d["price"] = clean_float_values(price_txt, "$", ",")
+            d["value"] = clean_float_values(val_txt, "$", ",")
+
+            if not d["value"] or not d["price"]:
+                    return d
+
+            d["discount_amount"] = d["value"] - d["price"]
+
+            discount_percentage = d["discount_amount"] / d["value"]
+            discount_percentage = float("%.2f"%discount_percentage)
+            d["discount_percentage"] = discount_percentage
+
+
+        except NoSuchElementException, ex:
+            pass
+
+        #driver.close()
+        return d
 
     def _extract_merchant_info(self, response):
         """
