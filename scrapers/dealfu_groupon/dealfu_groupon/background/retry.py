@@ -4,7 +4,9 @@ from scrapy.crawler import Crawler
 from scrapy import log, signals
 from scrapy.utils.project import get_project_settings
 
+from dealfu_groupon.background.celery import app
 
+@app.task
 def retry_document(settings, redis_key, doc):
     """
     This task will generally enqueue the given url
