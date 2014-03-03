@@ -1,7 +1,8 @@
 from scrapy.exceptions import DropItem
 from scrapy import log
+from redis import Redis
 
-from dealfu_groupon.utils import check_spider_pipeline, get_es
+from dealfu_groupon.utils import check_spider_pipeline, get_es, merge_dict_items, needs_retry
 
 
 class RetryPipeLine(object):
@@ -18,6 +19,8 @@ class RetryPipeLine(object):
         #print "SPIDER PIPELINEEEEE ",spider.pipeline
         self.settings = spider.settings
         self.es = get_es(self.settings)
+        self.redis_conn = Redis(host=self.settings.get("REDIS_HOST"),
+                                port=self.settings.get("REDIS_PORT"))
 
 
     @check_spider_pipeline
@@ -25,8 +28,34 @@ class RetryPipeLine(object):
         """
         Retry specified the specified item
         """
+        spider.log("RETRY ITEM : %s "%item["id"], log.INFO)
+
         result = self.es.get(index=self.settings.get("ES_INDEX"),
                     doc_type=self.settings.get("ES_INDEX_TYPE_DEALS"),
                     id=item["id"])['_source']
-        spider.log("RETRY ITEM : %s "%item["id"], log.INFO)
+
+        merged_item = merge_dict_items(result, item)
+
+        retry_key = self.settings.get("REDIS_RETRY_PREFIX")%item.get("id")
+        if not self.redis_conn.exists(retry_key):
+            raise DropItem("Non existing retry task : %s "%item["id"])
+
+        retry_dict = self.redis_conn.hgetall(retry_key)
+
+        if not needs_retry(merged_item):
+            #mark item as finished so the other end can finish that
+            retry_dict["status"] = self.settings.get("REDIS_RETRY_STATUS_FINISHED")
+            self.redis_conn.hmset(retry_key, retry_dict)
+        else:
+            #decrase the retry count so other part can know if it failed
+            retry_count = retry_dict["retry_count"]
+            retry_count -= 1
+
+            if retry_count <= 0:
+                retry_dict["status"] = self.settings.get("REDIS_RETRY_STATUS_FAILED")
+
+            retry_dict["retry_count"] = retry_count
+            #set the final structure
+            self.redis_conn.hmset(retry_key, retry_dict)
+
         return item
