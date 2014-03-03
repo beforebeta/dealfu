@@ -7,6 +7,7 @@ import json
 import re
 import functools
 import logging
+from copy import copy
 
 from dealfu_groupon.items import MerchantItem, MerchantAddressItem
 
@@ -165,7 +166,7 @@ def clean_float_values(sfloat, *clean_lst):
         sfloat = sfloat.replace(c, "")
 
     #we should extract it from here
-    res = re.search("(\d+.*)", sfloat)
+    res = re.search("(\d+\.?\d*)", sfloat)
     if not res:
         return 0
 
@@ -241,6 +242,37 @@ def needs_retry(item):
         return True
 
     return False
+
+
+
+def merge_dict_items(first, second):
+    """
+    That merge is a little bit different from the one
+    that is builtin in Python, in builtin fn generally
+    the second item should override the parts in first one,
+    but what we need is second to override only when there is
+    a value. If for example we have 2 dicts like :
+
+    d1 = {"one":1, "two":None}
+    d2 = {"one":None, "two":2}
+
+    the result of merging should be :
+
+    d3 = {"one":1, "two":2}
+    """
+    d3 = copy(first)
+
+    for k,v in second.iteritems():
+        if not v:
+            #we are not interested in empty values
+            continue
+        elif isinstance(v, dict):
+            tmp = merge_dict_items(d3[k], second[k])
+            d3[k] = tmp
+        else:
+            d3[k] = v
+
+    return d3
 
 
 
