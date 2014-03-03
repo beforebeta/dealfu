@@ -103,11 +103,9 @@ class EsPipeLine(object):
             #there is no need to schedule anything at that point
             return False
 
-        scheduler = Scheduler(self.settings.get("REDIS_DEFAULT_QUEUE"),
-                              connection=self.redis_conn)
 
         for r in self.retry_list:
-            self._add_doc_to_retry_list(scheduler, r)
+            self._add_doc_to_retry_list(r)
 
 
         spider.log("Retry list added to queue", log.INFO)
@@ -135,14 +133,15 @@ class EsPipeLine(object):
         return True
 
 
-    def _add_doc_to_retry_list(self, rq_sched, item):
+    def _add_doc_to_retry_list(self, item):
         """
         Adds the doc to retry list in redis
         """
         default_retry_dict  = {
             "url":item.get("untracked_url"),
             "retry_count":self.settings.get("REDIS_RETRY_COUNT"),
-            "added":datetime.datetime.utcnow()
+            "added":datetime.datetime.utcnow(),
+            "status":self.settings.get("REDIS_RETRY_STATUS_READY")
         }
 
 
@@ -154,10 +153,8 @@ class EsPipeLine(object):
                  log.INFO)
 
         #also we should enqueue it at that point
-        rq_sched.enqueue_in(timedelta(seconds=self.settings.get("REDIS_RETRY_DELAY")),
-                            retry_document,
-                            self.settings,
-                            retry_key,
-                            item)
+        retry_after = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.settings.get("REDIS_RETRY_DELAY"))
+        retry_document.apply_async(args=[self.settings, retry_key, item],
+                                   eta=datetime.datetime.utcnow() + timedelta(seconds=20))
 
         return True
