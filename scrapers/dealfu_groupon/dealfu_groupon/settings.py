@@ -18,6 +18,11 @@ ITEM_PIPELINES = {
 }
 
 
+#DISABLE THE WEB AND TELNET FOR NOW
+WEBSERVICE_ENABLED = False
+TELNETCONSOLE_ENABLED = False
+
+
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
 #USER_AGENT = 'dealfu_groupon (+http://www.yourdomain.com)'
 DOWNLOAD_DELAY = 0.25    # 250? ms of delay
