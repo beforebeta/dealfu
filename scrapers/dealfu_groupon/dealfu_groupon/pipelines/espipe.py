@@ -1,9 +1,8 @@
 import datetime
 from copy import copy
-from datetime import timedelta
 
 from redis.client import Redis
-from rq_scheduler import Scheduler
+from celery import group
 
 from scrapy import log
 from scrapy.exceptions import DropItem
@@ -104,9 +103,14 @@ class EsPipeLine(object):
             return False
 
 
+        tasks = []
         for r in self.retry_list:
-            self._add_doc_to_retry_list(r)
+            partial_retry_task = self._add_doc_to_retry_list(r)
+            tasks.append(partial_retry_task)
 
+        retry_after = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.settings.get("REDIS_RETRY_DELAY"))
+        if tasks:
+            job = group(tasks)(eta=retry_after)
 
         spider.log("Retry list added to queue", log.INFO)
 
@@ -141,7 +145,8 @@ class EsPipeLine(object):
             "url":item.get("untracked_url"),
             "retry_count":self.settings.get("REDIS_RETRY_COUNT"),
             "added":datetime.datetime.utcnow(),
-            "status":self.settings.get("REDIS_RETRY_STATUS_READY")
+            "status":self.settings.get("REDIS_RETRY_STATUS_READY"),
+            "updated":datetime.datetime.utcnow()
         }
 
 
@@ -153,8 +158,4 @@ class EsPipeLine(object):
                  log.INFO)
 
         #also we should enqueue it at that point
-        retry_after = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.settings.get("REDIS_RETRY_DELAY"))
-        retry_document.apply_async(args=[self.settings, retry_key, item],
-                                   eta=datetime.datetime.utcnow() + timedelta(seconds=20))
-
-        return True
+        return retry_document.s(self.settings, retry_key, item)
