@@ -48,7 +48,7 @@ class RetryPipeLine(object):
             self.redis_conn.hmset(retry_key, retry_dict)
         else:
             #decrase the retry count so other part can know if it failed
-            retry_count = retry_dict["retry_count"]
+            retry_count = int(retry_dict["retry_count"])
             retry_count -= 1
 
             if retry_count <= 0:
