@@ -1,8 +1,12 @@
+import datetime
+
 from twisted.internet import reactor
 
 from scrapy.crawler import Crawler
 from scrapy import log, signals
 from scrapy.utils.project import get_project_settings
+
+from redis import Redis
 
 from dealfu_groupon.background.celery import app
 
@@ -32,5 +36,19 @@ def retry_document(settings, redis_key, doc):
     #check the status on redis
     #and if the items is retried successfully
     #then don't reschedule it again !
+    redis_conn = Redis(host=settings.get("REDIS_HOST"),
+                        port=settings.get("REDIS_PORT"))
 
-    return "FINISHED !"
+    if not redis_conn.exists(redis_key):
+        raise Exception("Non existing retry url task ! : "+redis_key)
+
+    retry_dict = redis_conn.hgetall(redis_key)
+    finish_statuses = [settings.get("REDIS_RETRY_STATUS_FAILED"),
+                       settings.get("REDIS_RETRY_STATUS_FINISHED")]
+
+    if retry_dict["status"] in finish_statuses:
+        return "FINISHED !"
+
+    #retry it again
+    retry_document.apply_async(args=[settings, redis_key, doc],
+                               eta = datetime.datetime.utcnow() + datetime.timedelta(seconds=settings.get("REDIS_RETRY_DELAY")))
