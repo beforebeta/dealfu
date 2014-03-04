@@ -10,6 +10,7 @@ app = Celery('dealfu_groupon.background',
 # Optional configuration, see the application user guide.
 app.conf.update(
     CELERY_TIMEZONE = 'Europe/London',
+    CELERYD_MAX_TASKS_PER_CHILD=1 #we need that because of twisted reactor not being restartable
 )
 
 if __name__ == '__main__':
