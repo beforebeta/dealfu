@@ -31,12 +31,15 @@ class GrouponSpider(Spider):
 
     def __init__(self, division_path=None, only_one_page=False,
                  only_one_deal=False, pipeline=None, one_url=None,
-                 doc_id=None, *args, **kw):
+                 doc_id=None, num_of_deals=None, *args, **kw):
         super(GrouponSpider, self).__init__(*args, **kw)
 
         self.only_one_page = only_one_page
         self.only_one_deal  = only_one_deal
         self.doc_id = doc_id #that only makes sense when it is a retry !!!
+        #sometimes it makes sense to limit the deals we need
+        self.num_of_deals = int(num_of_deals) if num_of_deals else num_of_deals
+        self.total_deals = 0
 
         if pipeline:
             self.pipeline = pipeline if isinstance(pipeline, list) or isinstance(pipeline, set) else set([pipeline])
@@ -87,14 +90,20 @@ class GrouponSpider(Spider):
         #print "DEAL URLS : ",deals_urls
 
         for d in deals_urls:
+            if self.total_deals == self.num_of_deals:
+                continue
+
             if d.startswith("//"):
                 d = d.replace("//", "http://")
 
             r = Request(d, callback=self.parse_deal)
+            self.total_deals += 1
+
             yield r
 
         #and at that stage we should check if there is more page
-        if int(pagination.get("nextPageSize")) > 0 and not self.only_one_page:
+        if int(pagination.get("nextPageSize")) > 0 and not self.only_one_page \
+                and not self.total_deals == self.num_of_deals:
             #we should get the next page
             d = extract_query_params(response.url, "page")
             if d.get("page"):
