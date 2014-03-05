@@ -9,6 +9,8 @@ import functools
 import logging
 from copy import copy
 
+from redis import Redis
+
 from dealfu_groupon.items import MerchantItem, MerchantAddressItem
 
 
@@ -186,6 +188,15 @@ def get_es(settings):
 
     return elasticsearch.Elasticsearch(hosts=[d])
 
+
+def get_redis(settings):
+    """
+    Gets a redis connection from supplied settings
+    """
+    redis_conn = Redis(host=settings.get("REDIS_HOST"),
+                       port=settings.get("REDIS_PORT"))
+
+    return redis_conn
 
 
 def needs_retry(item):
