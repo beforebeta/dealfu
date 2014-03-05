@@ -410,15 +410,16 @@ class GrouponSpider(Spider):
 
         #try to match the whole address
         addr_text = " ".join(text_list)
-        res = re.search("(.*),\s+(\w+)\s+(\d{5})", addr_text)
+        #print "ADDR_TEXT : ",addr_text
+        res = re.search("(.*),\s*((\w+\s*)+)(\d{5})", addr_text)
         if res:
             final_address = res.group(1).strip()
             ma["address"] = final_address
-            ma["region_long"] = res.group(2)
+            ma["region_long"] = res.group(2).strip()
             ma["region"] = get_short_region_name(res.group(2))
 
             #locality at that stage ?
-            ma["postal_code"] = res.group(3)
+            ma["postal_code"] = res.group(4)
 
             #check for phone number
             res = re.search("(\d{3}\-\d{3}\-\d{4})", addr_text)
