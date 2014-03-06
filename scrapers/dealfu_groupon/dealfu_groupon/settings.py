@@ -48,8 +48,10 @@ REDIS_RETRY_STATUS_FINISHED = "FINISHED"
 REDIS_RETRY_STATUS_FAILED = "FAILED"
 
 #REDIS GEO SETTINGS
+GOOGLE_GEO_API_KEY = "AIzaSyADtvgG6dUm8JHXCX9fMRM96B68QSPI1n8"
 REDIS_GEO_CACHE_KEY = "scrapy:geo:cache:%s" #pattern for cached values so far !
 REDIS_GEO_POLL_LIST = "scrapy:geo:queue" # alist with items to pull
+REDIS_GEO_REQUEST_LOG = "scrapy:geo:requests"
 
 #GOOGLE GEOCODING SETTINGS
 GOOGLE_GEO_API_ENDPOINT = "https://maps.googleapis.com/maps/api/geocode/json"

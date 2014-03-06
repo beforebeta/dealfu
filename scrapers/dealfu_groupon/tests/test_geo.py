@@ -2,12 +2,15 @@
 Test geolocation fns here
 """
 from elasticsearch.exceptions import TransportError
+from mock import MagicMock, patch
 from os.path import abspath, dirname
 import os
 import json
+import datetime
+import calendar
 
 from dealfu_groupon.background.geocode import is_valid_address, format_str_address, submit_geo_request, cache_item, \
-    extract_lang_lon_from_cached_result
+    extract_lang_lon_from_cached_result, fetch_geo_addresses
 from dealfu_groupon.utils import get_es, get_redis
 from unittest import TestCase
 
@@ -70,8 +73,10 @@ TEST_SETTINGS_OBJECT = dict(
     #REDIS GEO SETTINGS
     REDIS_GEO_CACHE_KEY = "scrapy:geo:cache:%s", #pattern for cached values so far !
     REDIS_GEO_POLL_LIST = "scrapy:geo:queue", # alist with items to pull
+    REDIS_GEO_REQUEST_LOG = "scrapy:geo:requests",
 
     #GOOGLE GEOCODING SETTINGS
+    GOOGLE_GEO_API_KEY = "fake_test",
     GOOGLE_GEO_API_ENDPOINT = "https://maps.googleapis.com/maps/api/geocode/json",
     GOOGLE_GEO_REQUESTS_PER_DAY = GOOGLE_GEO_REQUESTS_PER_DAY,
     GOOGLE_GEO_REQUESTS_PERIOD = GOOGLE_GEO_REQUESTS_PERIOD,
@@ -82,7 +87,7 @@ TEST_SETTINGS_OBJECT = dict(
 from elasticsearch.client import IndicesClient
 
 
-class TestSubmitGeoRequest(TestCase):
+class RedisEsSetupMixin(object):
 
     def setUp(self):
         self.settings = TEST_SETTINGS_OBJECT
@@ -92,6 +97,9 @@ class TestSubmitGeoRequest(TestCase):
         self.index = self.settings.get("ES_INDEX")
 
         #create the index firstly
+        if self.esi.exists(self.index):
+            self.esi.delete(index=self.index)
+
         self.esi.create(index=self.index)
 
         mapping_path = os.path.join(self.settings.get("SCRAPY_ROOT"),
@@ -117,6 +125,9 @@ class TestSubmitGeoRequest(TestCase):
         #remove redis stuff
         self.redis_conn.flushdb()
         print "REDIS DB DELETED"
+
+
+class TestSubmitGeoRequest(RedisEsSetupMixin, TestCase):
 
 
     def test_submit_non_existing_geo_item(self):
@@ -168,7 +179,8 @@ class TestSubmitGeoRequest(TestCase):
 
         #print "PUSHED_ITEM ",push_item
 
-        address, region, postal_code = push_item.split(":")
+        item_id, address, region, postal_code = push_item.split(":")
+        self.assertEqual(item_id, doc_id)
         self.assertEqual(address, item["merchant"]["addresses"][0]["address"])
         self.assertEqual(region, item["merchant"]["addresses"][0]["region_long"])
         self.assertEqual(postal_code, item["merchant"]["addresses"][0]["postal_code"])
@@ -340,18 +352,153 @@ class TestSubmitGeoRequest(TestCase):
         push_item = self.redis_conn.blpop(address_queue_key)[1]
         #print "PUSHED_ITEM ",push_item
         #check if it is the second address in item
-        address, region, postal_code = push_item.split(":")
+        item_id, address, region, postal_code = push_item.split(":")
+        self.assertEqual(item_id, doc_id)
         self.assertEqual(address, item["merchant"]["addresses"][1]["address"])
         self.assertEqual(region, item["merchant"]["addresses"][1]["region_long"])
         self.assertEqual(postal_code, item["merchant"]["addresses"][1]["postal_code"])
 
 
-class TestProcessGeoRequest(TestCase):
+class TestProcessGeoRequest(RedisEsSetupMixin, TestCase):
+
+    @patch("dealfu_groupon.background.geocode.requests")
+    def test_fetch_geo_addresses_success(self, mock_requests):
+        class GetJson(object):
+
+            def __init__(self, response):
+                self.response = response
+
+            def json(self):
+                return self.response
+
+        item = {
+            "merchant": {
+                  "url": "http://northdallasmedspa.com",
+                  "name": "Medical Aesthetics of North Dallas",
+                  "addresses": [
+                     {
+                        "phone_number": "214-577-1777",
+                        "country_code": "US",
+                        "country": "United States",
+                        "region": "TX",
+                        "postal_code": "75093",
+                        "address_name": "Plano",
+                        "address": "4716 Alliance Boulevard Pavillion II, Suite 270 Plano",
+                        "region_long": "Texas"
+                     },
+                     {
+                        "phone_number": "443-546-3968",
+                        "country_code": "US",
+                        "country": "United States",
+                        "region": "MD",
+                        "postal_code": "21045",
+                        "address_name": "Columbia",
+                        "address": "6476 Dobbin Center Way Columbia",
+                        "region_long": "Maryland"
+                     }
+                  ]
+               },
+               "untracked_url": "http://www.groupon.com/deals/medical-aesthetics-of-north-dallas",
+        }
+
+        result = self.es.create(index=self.settings.get("ES_INDEX"),
+                                doc_type=self.settings.get("ES_INDEX_TYPE_DEALS"),
+                                body=item)
+
+        doc_id = result.get("_id")
 
 
-    def setUp(self):
-        pass
+        mock_response = {u'results': [
+                            {u'address_components': [{u'long_name': u'75093',
+                             u'short_name': u'75093',
+                             u'types': [u'postal_code']},
+                            {u'long_name': u'Plano',
+                             u'short_name': u'Plano',
+                             u'types': [u'locality', u'political']},
+                            {u'long_name': u'Texas',
+                             u'short_name': u'TX',
+                             u'types': [u'administrative_area_level_1', u'political']},
+                            {u'long_name': u'United States',
+                             u'short_name': u'US',
+                             u'types': [u'country', u'political']}],
+                           u'formatted_address': u'Plano, TX 75093, USA',
+                           u'geometry': {u'bounds': {u'northeast': {u'lat': 33.094414,
+                              u'lng': -96.766645},
+                             u'southwest': {u'lat': 33.007773, u'lng': -96.8602289}},
+                            u'location': {u'lat': 33.0386278, u'lng': -96.8243812},
+                            u'location_type': u'APPROXIMATE',
+                            u'viewport': {u'northeast': {u'lat': 33.065598, u'lng': -96.766645},
+                             u'southwest': {u'lat': 33.007773, u'lng': -96.8602289}}},
+                           u'partial_match': True,
+                           u'types': [u'postal_code']}],
+                         u'status': u'OK'}
 
-    def tearDown(self):
-        pass
 
+        get_mock = MagicMock(return_value=GetJson(mock_response))
+        mock_requests.get = get_mock
+
+        address_dict = {
+                        "phone_number": "214-577-1777",
+                        "country_code": "US",
+                        "country": "United States",
+                        "region": "TX",
+                        "postal_code": "75093",
+                        "address_name": "Plano",
+                        "address": "4716 Alliance Boulevard Pavillion II, Suite 270 Plano",
+                        "region_long": "Texas"
+                     }
+
+        formatted_addr = format_str_address(address_dict)
+        formatted_addr_id = doc_id + ":" + formatted_addr
+
+        #add it on the queue
+        fetch_queue_key = self.settings.get("REDIS_GEO_POLL_LIST")
+        self.redis_conn.rpush(fetch_queue_key, formatted_addr_id)
+
+        assert  fetch_geo_addresses(self.settings, 1, 0.1)
+
+        #now check the cache we should have one value there
+        cache_key = self.settings.get("REDIS_GEO_CACHE_KEY")%formatted_addr
+        #print "CACHE_KEY  :",cache_key
+        self.assertEqual(self.redis_conn.exists(cache_key), True)
+
+        cache_result = json.loads(self.redis_conn.get(cache_key))
+        geo_dict = extract_lang_lon_from_cached_result(cache_result)
+
+        assert geo_dict["lat"]
+        assert geo_dict["lon"]
+
+        #we should check the mocked request args
+        args, kwargs = get_mock.call_args
+
+        #print "KWARGS : ",kwargs
+        self.assertEqual(kwargs["params"]["address"],
+                         format_str_address(address_dict, delimiter=","))
+
+        #the last step is to check the zset member if it is there !
+        now_time = datetime.datetime.utcnow()
+        before_time = now_time - datetime.timedelta(hours=24)
+
+        now = calendar.timegm(now_time.utctimetuple())
+        before = calendar.timegm(before_time.utctimetuple())
+
+        time_logs =  self.redis_conn.zrangebyscore(self.settings.get("REDIS_GEO_REQUEST_LOG"),
+                                            before,
+                                            now)
+        assert len(time_logs) == 1
+        time_stamp = int(time_logs[0].split(":")[-1])
+        log_time = datetime.datetime.utcfromtimestamp(time_stamp)
+
+        assert log_time < now_time
+        assert log_time > before_time
+
+        #also check if the address is update of the item
+
+        fresh_item = self.es.get(index=self.settings.get("ES_INDEX"),
+                            doc_type=self.settings.get("ES_INDEX_TYPE_DEALS"),
+                            id=doc_id)['_source']
+
+        #check if we have lat/lon
+        address = fresh_item["merchant"]["addresses"][0]
+        #print "ADDRESS : ",address
+        self.assertEqual(address.has_key("geo_location"), True)
