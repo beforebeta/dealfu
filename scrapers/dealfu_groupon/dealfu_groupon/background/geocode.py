@@ -16,7 +16,7 @@ def process_geo_request(settings):
 
     def _iter_addr_queue(redis_conn, key):
         while True:
-            yield redis_conn.blpop(key)
+            yield redis_conn.blpop(key)[1]
 
     #compute the submitted requsts for the last 24 hrs
     redis_conn = get_redis(settings)
@@ -87,6 +87,7 @@ def submit_geo_request(settings, item_id):
                     doc_type=settings.get("ES_INDEX_TYPE_DEALS"),
                     id=item_id)['_source']
 
+    #print "ITEM fetched ",item
 
     merchant = item.get("merchant")
     if not merchant:
@@ -114,9 +115,11 @@ def submit_geo_request(settings, item_id):
             cached_addr = redis_conn.get(cache_key%formated_address)
             cached_addr = json.loads(cached_addr)
 
-            lat = cached_addr["geometry"]["location"]["lat"]
-            lon = cached_addr["geometry"]["location"]["lon"]
+            cached_coords = extract_lang_lon_from_cached_result(cached_addr)
+            lat = cached_coords["lat"]
+            lon = cached_coords["lon"]
 
+            address["geo_location"] = {}
             address["geo_location"]["lat"] = lat
             address["geo_location"]["lon"] = lon
 
@@ -127,19 +130,25 @@ def submit_geo_request(settings, item_id):
 
     #set on item
     if to_save:
-        #we should merge the addresses here
-        final_address_lst = []
-        for a in addresses:
-            for s in to_save:
-                if a["address"] == s["address"]:
-                    a = merge_dict_items(a, s)
-            final_address_lst.append(a)
-
-        item["merchant"]["addresses"] = final_address_lst
-        #now save it to the database at that stage
-        _save_deal_item(settings, item)
+        _save_deal_item(settings, item_id, item)
 
     return True
+
+
+def extract_lang_lon_from_cached_result(result):
+    """
+    Simple result extractor util
+    """
+
+    results = result["results"][0]["geometry"]["location"]
+
+    #print "RESULTS : ",results
+
+    return {
+        "lat":results["lat"],
+        "lon":results["lng"],
+    }
+
 
 
 def cache_item(redis_conn, address_key, geo_response):
@@ -154,7 +163,8 @@ def cache_item(redis_conn, address_key, geo_response):
     return True
 
 
-def _save_deal_item(settings, item, es_conn=None):
+
+def _save_deal_item(settings, item_id, item, es_conn=None):
     """
     Saves the changed item into ES
     """
@@ -166,7 +176,6 @@ def _save_deal_item(settings, item, es_conn=None):
     es.index(index=settings.get("ES_INDEX"),
              doc_type=settings.get("ES_INDEX_TYPE_DEALS"),
              body=item,
-             id=item["id"])
-
+             id=item_id)
 
     return True
