@@ -193,8 +193,11 @@ def get_redis(settings):
     """
     Gets a redis connection from supplied settings
     """
+    db_num = settings.get("REDIS_DEFAULT_DB", 0)
+
     redis_conn = Redis(host=settings.get("REDIS_HOST"),
-                       port=settings.get("REDIS_PORT"))
+                       port=settings.get("REDIS_PORT"),
+                       db=db_num)
 
     return redis_conn
 
