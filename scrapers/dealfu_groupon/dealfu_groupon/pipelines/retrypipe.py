@@ -1,3 +1,4 @@
+from elasticsearch.exceptions import TransportError
 from scrapy.exceptions import DropItem
 from scrapy import log
 from redis import Redis
@@ -30,17 +31,22 @@ class RetryPipeLine(object):
         """
         spider.log("RETRY ITEM : %s "%item["id"], log.INFO)
 
-        result = self.es.get(index=self.settings.get("ES_INDEX"),
-                    doc_type=self.settings.get("ES_INDEX_TYPE_DEALS"),
-                    id=item["id"])['_source']
-
-        merged_item = merge_dict_items(result, item)
-
         retry_key = self.settings.get("REDIS_RETRY_PREFIX")%item.get("id")
         if not self.redis_conn.exists(retry_key):
             raise DropItem("Non existing retry task : %s "%item["id"])
 
         retry_dict = self.redis_conn.hgetall(retry_key)
+
+        try:
+            result = self.es.get(index=self.settings.get("ES_INDEX"),
+                        doc_type=self.settings.get("ES_INDEX_TYPE_DEALS"),
+                        id=item["id"])['_source']
+
+        except TransportError,ex:
+            self._mark_failed(retry_key, retry_dict)
+            raise DropItem("Non existing item : %s "%item["id"])
+
+        merged_item = merge_dict_items(result, item)
 
         if not needs_retry(merged_item):
             #mark item as finished so the other end can finish that
@@ -59,3 +65,12 @@ class RetryPipeLine(object):
             self.redis_conn.hmset(retry_key, retry_dict)
 
         return item
+
+
+    def _mark_failed(self, retry_key, retry_dict):
+        """
+        Mark item as failed
+        """
+        retry_dict["status"] = self.settings.get("REDIS_RETRY_STATUS_FAILED")
+        self.redis_conn.hmset(retry_key, retry_dict)
+        return True
