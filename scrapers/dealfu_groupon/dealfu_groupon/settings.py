@@ -42,18 +42,18 @@ REDIS_HOST = "192.168.0.113"
 REDIS_PORT = 6379
 REDIS_RETRY_PREFIX = "scrapy:retry:%s"
 REDIS_RETRY_COUNT = 4
-REDIS_RETRY_DELAY = 20 #seconds to wait after we start retrying
+REDIS_RETRY_DELAY = 5*60 #seconds to wait after we start retrying
 REDIS_RETRY_STATUS_READY = "READY"
 REDIS_RETRY_STATUS_FINISHED = "FINISHED"
 REDIS_RETRY_STATUS_FAILED = "FAILED"
 
 #REDIS GEO SETTINGS
-GOOGLE_GEO_API_KEY = "AIzaSyADtvgG6dUm8JHXCX9fMRM96B68QSPI1n8"
 REDIS_GEO_CACHE_KEY = "scrapy:geo:cache:%s" #pattern for cached values so far !
 REDIS_GEO_POLL_LIST = "scrapy:geo:queue" # alist with items to pull
 REDIS_GEO_REQUEST_LOG = "scrapy:geo:requests"
 
 #GOOGLE GEOCODING SETTINGS
+GOOGLE_GEO_API_KEY = "AIzaSyADtvgG6dUm8JHXCX9fMRM96B68QSPI1n8"
 GOOGLE_GEO_API_ENDPOINT = "https://maps.googleapis.com/maps/api/geocode/json"
 GOOGLE_GEO_REQUESTS_PER_DAY = 2500
 GOOGLE_GEO_REQUESTS_PERIOD = 24*60*60
