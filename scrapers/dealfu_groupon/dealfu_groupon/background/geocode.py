@@ -3,11 +3,36 @@ import time
 import datetime
 import calendar
 
-from dealfu_groupon.utils import get_redis, merge_dict_items, get_es
-from dealfu_groupon.background.celery import app
 from elasticsearch.exceptions import TransportError
-
 import requests
+
+from dealfu_groupon.utils import get_redis, get_es
+from dealfu_groupon.background.celery import app
+
+
+try:
+    #sometimes fails inside the tests
+    from celery.utils.log import get_task_logger
+    logger = get_task_logger(__name__)
+except ImportError:
+    import logging
+    logger = logging.getLogger(__name__)
+
+
+
+def compute_delay(settings, redis_conn):
+    """
+    Computes the delay that we should apply between 2 requests
+    Basicly it sends back the delay (in secs) and the number of items
+    that should be applied
+
+    @returns back a tuple of :
+        (delay, num_of_requests)
+
+
+    """
+    return settings.get("GOOGLE_GEO_DEFAULT_DELAY"), settings.get("GOOGLE_GEO_REQUESTS_PER_DAY")
+
 
 
 @app.task
@@ -15,15 +40,16 @@ def process_geo_requests(settings):
     """
     The main process that polls for new addresses to be gathered
     """
-    pass
+    delay, num_of_reqs = compute_delay(settings, None)
+    logger.info("Starting the geo_request_processor with delay of : {0} for {1} reqs"
+                .format(delay, num_of_reqs))
 
+    while True:
+        fetch_geo_addresses(settings, num_of_reqs, delay)
+        delay, num_of_reqs = compute_delay(settings, None)
+        logger.info("Setting the geo_request_processor with delay of : {0} for {1} reqs"
+                .format(delay, num_of_reqs))
 
-
-def compute_delay(settings, redis_conn):
-    """
-    Computes the delay that we should apply between 2 requests
-    """
-    pass
 
 
 
@@ -34,6 +60,7 @@ def fetch_geo_addresses(settings, num_of_requests, delay):
 
     def _iter_addr_queue(redis_conn, key):
         while True:
+            print "INFINITE ======="
             yield redis_conn.blpop(key)[1]
 
     #compute the submitted requsts for the last 24 hrs
@@ -43,6 +70,7 @@ def fetch_geo_addresses(settings, num_of_requests, delay):
 
     for formatted_addr in _iter_addr_queue(redis_conn, address_queue_key):
         #at that stage we will get the data from google
+        logger.info("Pulling geo info for : {0}".format(formatted_addr))
 
         formatted_list = formatted_addr.split(":")
         #the first part is the id of the item ignore it
@@ -60,12 +88,13 @@ def fetch_geo_addresses(settings, num_of_requests, delay):
         #add an entry to the redis so we don't flood the api endpoint
         time_entry = calendar.timegm(now.utctimetuple())
         #print "TIME_ENTRY : ",float(time_entry)
-        print formatted_addr
+        #print formatted_addr
 
         redis_conn.zadd(settings.get("REDIS_GEO_REQUEST_LOG"),
                         formatted_addr+":"+str(time_entry),
                         float(time_entry))
 
+        logger.info("A new request log entry added : {0}".format(formatted_addr+":"+str(time_entry)))
 
 
         result = r.json()
@@ -79,9 +108,11 @@ def fetch_geo_addresses(settings, num_of_requests, delay):
         cache_key = settings.get("REDIS_GEO_CACHE_KEY") % cache_addr
         #print "FN_CACHE_KEY ",cache_key
         cache_item(redis_conn, cache_key, result)
+        logger.info("Item submitted to the cache with key : {0}".format(cache_key))
 
         #at that point we should update the specified item's lat and lon
         update_save_item_addr(settings, item_id, cache_addr, result)
+        logger.info("Item : {0} updated with geo info ".format(item_id))
 
         #wait for the desired time
         time.sleep(delay)
@@ -160,6 +191,7 @@ def submit_geo_request(settings, item_id):
                     doc_type=settings.get("ES_INDEX_TYPE_DEALS"),
                     id=item_id)['_source']
 
+    logger.info("Submitting geo request for id : {0}".format(item_id))
     #print "ITEM fetched ",item
 
     merchant = item.get("merchant")
@@ -183,7 +215,9 @@ def submit_geo_request(settings, item_id):
 
     for address in to_check:
         formated_address = format_str_address(address)
+        logger.info("Checking address : {0} for {1}".format(formated_address, item_id))
         if redis_conn.exists(cache_key%formated_address):
+            logger.info("We have a cache hit {0} for {1}".format(formated_address, item_id))
             #get the cached value
             cached_addr = redis_conn.get(cache_key%formated_address)
             cached_addr = json.loads(cached_addr)
@@ -197,16 +231,20 @@ def submit_geo_request(settings, item_id):
             address["geo_location"]["lon"] = lon
 
             to_save.append(address)
+
         else:
+            logger.info("We have a cache miss {0} for {1}".format(formated_address, item_id))
             #push it on queue  to be fetched later
             # we should encode the id here also when submitting
             # it to the part that processes the addresses
             formated_address = ":".join([item_id, formated_address])
             redis_conn.rpush(fetch_queue_key, formated_address)
+            logger.info("Item submitted to be fetched : {0}".format(formated_address))
 
     #set on item
     if to_save:
         _save_deal_item(settings, item_id, item)
+        logger.info("Items : {0} saved with address info in db".format(item_id))
 
     return True
 
@@ -255,3 +293,4 @@ def _save_deal_item(settings, item_id, item, es_conn=None):
              id=item_id)
 
     return True
+
