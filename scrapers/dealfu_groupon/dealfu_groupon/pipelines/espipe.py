@@ -1,5 +1,6 @@
 import datetime
 from copy import copy
+from dealfu_groupon.background.geocode import is_valid_address, submit_geo_request
 
 from redis.client import Redis
 from celery import group
@@ -61,8 +62,37 @@ class EsPipeLine(object):
 
         #here check if we should add it to retry list
         self._add_if_to_rety_list(item)
+        self._add_if_to_geo_request(item, doc_id)
 
         return item
+
+
+    def _add_if_to_geo_request(self, item, item_id):
+        """
+        Adds item into geo request queue is legitime to be gathered
+        """
+        merchant = item.get("merchant")
+        if not merchant:
+            self.log("No merchant info, not submitted for geo request : {0}"
+                        .format(item_id))
+            return False
+
+        addresses = merchant.get("addresses")
+        if not addresses:
+            self.log("No address info, not submitted for geo request : {0}"
+                        .format(item_id))
+            return False
+
+
+        if not any([a for a in addresses if is_valid_address(a)]):
+            self.log("No valid address info, not submitted for geo request : {0}"
+                        .format(item_id))
+            return False
+
+
+        async_result = submit_geo_request.delay(self.settings, item_id)
+        return True
+
 
 
     def _is_duplicate(self, item):
