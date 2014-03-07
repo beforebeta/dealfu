@@ -289,6 +289,18 @@ def merge_dict_items(first, second):
     return d3
 
 
+def from_obj_settings(obj):
+    """
+    Converts the object into a dictionary
+    """
+    d = {}
+    for key in dir(obj):
+        if key.isupper():
+            d[key] = getattr(obj, key)
+
+    return d
+
+
 
 #scrappy utils
 def check_spider_pipeline(process_item_method):
