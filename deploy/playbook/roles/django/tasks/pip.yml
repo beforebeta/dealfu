@@ -23,3 +23,16 @@
     - application
     - pip
     - app
+
+
+- name: Scrapy | Pip | Install Requirements.
+  sudo_user: ${project.user}
+  pip: >
+    requirements=$item
+    virtualenv=${project.virtualenv}
+  with_items: ${scrappers.requirements}
+  tags:
+    - packages
+    - application
+    - pip
+    - app
