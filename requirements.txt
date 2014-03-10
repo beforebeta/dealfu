@@ -4,3 +4,4 @@ Fabric==1.8.2
 elasticsearch==0.4.5
 celery==3.1.9
 mock==1.0.1
+selenium==2.40.0
