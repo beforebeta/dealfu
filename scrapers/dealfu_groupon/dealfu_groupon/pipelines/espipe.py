@@ -133,14 +133,13 @@ class EsPipeLine(object):
             return False
 
 
-        tasks = []
-        for r in self.retry_list:
-            partial_retry_task = self._add_doc_to_retry_list(r)
-            tasks.append(partial_retry_task)
-
         retry_after = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.settings.get("REDIS_RETRY_DELAY"))
-        if tasks:
-            job = group(tasks)(eta=retry_after)
+
+        for r in self.retry_list:
+            self._add_doc_to_retry_list(r)
+            retry_key = self.settings.get("REDIS_RETRY_PREFIX")%r.get("id")
+            retry_document.apply_async(args=[self.settings, retry_key, r],
+                                       eta=retry_after)
 
         spider.log("Retry list added to queue", log.INFO)
 
@@ -179,7 +178,6 @@ class EsPipeLine(object):
             "updated":datetime.datetime.utcnow()
         }
 
-
         retry_key = self.settings.get("REDIS_RETRY_PREFIX")%item.get("id")
         self.redis_conn.hmset(retry_key,
                               default_retry_dict)
@@ -188,4 +186,5 @@ class EsPipeLine(object):
                  log.INFO)
 
         #also we should enqueue it at that point
-        return retry_document.s(self.settings, retry_key, item)
+        return True
+        #return retry_document.s(self.settings, retry_key, item)
