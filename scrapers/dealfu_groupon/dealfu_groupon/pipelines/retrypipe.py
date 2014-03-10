@@ -1,3 +1,4 @@
+from celery.utils import jsonify
 from elasticsearch.exceptions import TransportError
 from scrapy.exceptions import DropItem
 from scrapy import log
@@ -30,6 +31,7 @@ class RetryPipeLine(object):
         Retry specified the specified item
         """
         spider.log("RETRY ITEM : %s "%item["id"], log.INFO)
+        spider.log("RETRY_DETAIL : %s"%jsonify(dict(item)), log.INFO)
 
         retry_key = self.settings.get("REDIS_RETRY_PREFIX")%item.get("id")
         if not self.redis_conn.exists(retry_key):
