@@ -34,9 +34,11 @@ django:
 
 scrappers:
   root: ${project.code}scrapers/dealfu_groupon/
+  requirements: ${project.code}requirements.txt
   resources: ${scrappers.root}resources/
   settings_dir: ${scrappers.root}dealfu_groupon/
   settings: staging
+  scrapy_bin: ${project.virtualenv}bin/scrapy
 
 
 #database:
