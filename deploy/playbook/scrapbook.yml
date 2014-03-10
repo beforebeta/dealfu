@@ -21,7 +21,31 @@
     - role: eggsby.supervise
       supervisor_virtualenv: "{{project.root}}venv"
       name: scrapy_groupon
-      command:
+      command: "{{scrappers.scrapy_bin}} crawl groupon -a num_of_deals=2"
+      directory: "{{scrappers.root}}"
+      app_home: '{{project.root}}apps'
+      user: "{{project.user}}"
+
+    - role: eggsby.supervise
+      supervisor_virtualenv: "{{project.root}}venv"
+      name: celery_geopoll
+      command: "${project.virtualenv}bin/celery --app=dealfu_groupon.background worker -l info --concurrency=1 -n worker1.geolong -Q geolong"
+      directory: "{{scrappers.root}}"
+      app_home: '{{project.root}}apps'
+      user: "{{project.user}}"
+
+    - role: eggsby.supervise
+      supervisor_virtualenv: "{{project.root}}venv"
+      name: celery_general
+      command: "${project.virtualenv}bin/celery --app=dealfu_groupon.background worker -l info --concurrency=5 -n worker3.general -Q celery"
+      directory: "{{scrappers.root}}"
+      app_home: '{{project.root}}apps'
+      user: "{{project.user}}"
+
+    - role: eggsby.supervise
+      supervisor_virtualenv: "{{project.root}}venv"
+      name: celery_retry
+      command: "${project.virtualenv}bin/celery --app=dealfu_groupon.background worker -l info --concurrency=1 -n worker2.retry -Q retryq"
       directory: "{{scrappers.root}}"
       app_home: '{{project.root}}apps'
       user: "{{project.user}}"
