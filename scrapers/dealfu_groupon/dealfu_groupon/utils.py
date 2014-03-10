@@ -301,6 +301,40 @@ def from_obj_settings(obj):
     return d
 
 
+def save_deal_item(settings, item_id, item, es_conn=None):
+    """
+    Saves the changed item into ES
+    """
+    if not es_conn:
+        es = get_es(settings)
+    else:
+        es = es_conn
+
+    es.index(index=settings.get("ES_INDEX"),
+             doc_type=settings.get("ES_INDEX_TYPE_DEALS"),
+             body=item,
+             id=item_id)
+
+    return True
+
+
+
+def extract_lang_lon_from_cached_result(result):
+    """
+    Simple result extractor util
+    """
+
+    results = result["results"][0]["geometry"]["location"]
+
+    #print "RESULTS : ",results
+
+    return {
+        "lat":results["lat"],
+        "lon":results["lng"],
+    }
+
+
+
 
 #scrappy utils
 def check_spider_pipeline(process_item_method):
