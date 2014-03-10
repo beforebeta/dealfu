@@ -1,0 +1,27 @@
+---
+# file: scrapbook.yml
+- name: Gather data about appservers
+  hosts:  appservers
+  gather_facts: yes
+  tasks:
+    - debug: Gather Facts
+
+- name: Configure scrappy groupon spider
+  hosts: appservers
+  sudo: yes
+  roles:
+    - role: eggsby.supervise
+      supervisor_virtualenv: "{{project.root}}venv"
+      name: webserver
+      command: python -m SimpleHTTPServer 9999
+      directory: "{{scrappers.root}}"
+      app_home: '{{project.root}}apps'
+      user: "{{project.user}}"
+
+    - role: eggsby.supervise
+      supervisor_virtualenv: "{{project.root}}venv"
+      name: scrapy_groupon
+      command:
+      directory: "{{scrappers.root}}"
+      app_home: '{{project.root}}apps'
+      user: "{{project.user}}"

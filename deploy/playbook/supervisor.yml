@@ -1,0 +1,14 @@
+---
+# file: supervisor.yml
+- name: Gather data about appservers
+  hosts:  appservers
+  gather_facts: yes
+  tasks:
+    - debug: Gather Facts
+
+- name: Configure supervisor
+  hosts: appservers
+  sudo: yes
+  roles:
+    - role: eggsby.supervisor
+      supervisor_virtualenv: "{{project.root}}venv"

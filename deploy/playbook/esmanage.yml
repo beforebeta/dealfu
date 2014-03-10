@@ -1,0 +1,27 @@
+---
+- name: Django |  Playbook  | EsReset
+  hosts: appservers
+  sudo_user: ${project.user}
+  tasks:
+    - name: "reset es indexes"
+      shell: source {{project.virtualenv}}bin/activate && python {{django.root}}manage.py  esmanage --cmd=reset --settings={{django.settings}}
+             executable=/bin/bash
+      ignore_errors: yes
+
+  tags:
+    - esmanage
+    - reset
+
+
+- name: Django |  Playbook  | EsInit
+  hosts: appservers
+  sudo_user: ${project.user}
+  tasks:
+    - name: "inits es indexes"
+      shell: source {{project.virtualenv}}bin/activate && python {{django.root}}manage.py  esmanage --cmd=init  --mapping={{scrappers.resources}}mappings.json --settings={{django.settings}}
+             executable=/bin/bash
+      ignore_errors: yes
+
+  tags:
+    - esmanage
+    - init
