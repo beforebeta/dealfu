@@ -3,3 +3,4 @@
 - include: appservers.yml
 - include: loadbalancers.yml
 - include: dbservers.yml
+- include cacheservers.yml
