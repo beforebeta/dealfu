@@ -1,0 +1,13 @@
+from dealfu_groupon.dsettings.base import *
+
+#ES_SETTINGS
+ES_SERVER = "127.0.0.1"
+ES_PORT = "9200"
+
+
+#REDIS QUEUE PARAMETERS
+REDIS_HOST = "127.0.0.1"
+REDIS_RETRY_DELAY = 5*60 #seconds to wait after we start retrying
+
+#GOOGLE GEOCODING SETTINGS
+GOOGLE_GEO_API_KEY = "AIzaSyADtvgG6dUm8JHXCX9fMRM96B68QSPI1n8"
