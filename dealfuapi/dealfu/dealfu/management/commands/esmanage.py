@@ -78,5 +78,5 @@ class Command(BaseCommand):
         if not esi.exists(index):
             raise CommandError("Non existing index : %s"%index)
 
-        self.stdout.write(esi.delete(index=index))
+        self.stdout.write(str(esi.delete(index=index)))
 
