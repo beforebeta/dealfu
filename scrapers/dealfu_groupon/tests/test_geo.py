@@ -22,8 +22,7 @@ def test_is_valid_address():
     assert not is_valid_address(a)
 
     a = {
-        "address":"my address",
-        "region_long":"New Mexico"
+        "address":"my address"
     }
 
     assert is_valid_address(a)
@@ -45,6 +44,41 @@ def test_format_str_address():
     }
 
     assert format_str_address(a) == "address:region"
+
+
+def _get_default_google_resp():
+    return {u'results': [
+                {u'address_components': [
+                    {   u'long_name': u'75093',
+                        u'short_name': u'75093',
+                        u'types': [u'postal_code']
+                    },
+                    {   u'long_name': u'Plano',
+                        u'short_name': u'Plano',
+                        u'types': [u'locality', u'political']
+                    },
+                    {   u'long_name': u'Texas',
+                        u'short_name': u'TX',
+                        u'types': [u'administrative_area_level_1', u'political']
+                    },
+                    {   u'long_name': u'United States',
+                        u'short_name': u'US',
+                        u'types': [u'country', u'political']
+                    }],
+
+                u'formatted_address': u'Plano, TX 75093, USA',
+                u'geometry': {
+                    u'bounds': {u'northeast': {u'lat': 33.094414, u'lng': -96.766645},
+                    u'southwest': {u'lat': 33.007773, u'lng': -96.8602289}},
+                    u'location': {u'lat': 33.0386278, u'lng': -96.8243812},
+                    u'location_type': u'APPROXIMATE',
+                    u'viewport': {u'northeast': {u'lat': 33.065598, u'lng': -96.766645},
+                    u'southwest': {u'lat': 33.007773, u'lng': -96.8602289}}
+                },
+               u'partial_match': True,
+               u'types': [u'postal_code']}
+              ],
+              u'status': u'OK'}
 
 
 GOOGLE_GEO_REQUESTS_PER_DAY = 2500
@@ -156,11 +190,8 @@ class TestSubmitGeoRequest(RedisEsSetupMixin, TestCase):
                         "phone_number": "214-577-1777",
                         "country_code": "US",
                         "country": "United States",
-                        "region": "TX",
-                        "postal_code": "75093",
                         "address_name": "Plano",
-                        "address": "4716 Alliance Boulevard Pavillion II, Suite 270 Plano",
-                        "region_long": "Texas"
+                        "address": "4716 Alliance Boulevard Pavillion II, Suite 270 Plano"
                      }
                   ]
                },
@@ -181,11 +212,9 @@ class TestSubmitGeoRequest(RedisEsSetupMixin, TestCase):
 
         #print "PUSHED_ITEM ",push_item
 
-        item_id, address, region, postal_code = push_item.split(":")
+        item_id, address = push_item.split(":")
         self.assertEqual(item_id, doc_id)
         self.assertEqual(address, item["merchant"]["addresses"][0]["address"])
-        self.assertEqual(region, item["merchant"]["addresses"][0]["region_long"])
-        self.assertEqual(postal_code, item["merchant"]["addresses"][0]["postal_code"])
 
 
     def test_submit_geo_request_cache_hit(self):
@@ -201,11 +230,8 @@ class TestSubmitGeoRequest(RedisEsSetupMixin, TestCase):
                         "phone_number": "214-577-1777",
                         "country_code": "US",
                         "country": "United States",
-                        "region": "TX",
-                        "postal_code": "75093",
                         "address_name": "Plano",
                         "address": "4716 Alliance Boulevard Pavillion II, Suite 270 Plano",
-                        "region_long": "Texas"
                      }
                   ]
                },
@@ -217,31 +243,7 @@ class TestSubmitGeoRequest(RedisEsSetupMixin, TestCase):
                                 body=item)
 
         doc_id = result.get("_id")
-
-        cached_request = {u'results': [
-                            {u'address_components': [{u'long_name': u'75093',
-                             u'short_name': u'75093',
-                             u'types': [u'postal_code']},
-                            {u'long_name': u'Plano',
-                             u'short_name': u'Plano',
-                             u'types': [u'locality', u'political']},
-                            {u'long_name': u'Texas',
-                             u'short_name': u'TX',
-                             u'types': [u'administrative_area_level_1', u'political']},
-                            {u'long_name': u'United States',
-                             u'short_name': u'US',
-                             u'types': [u'country', u'political']}],
-                           u'formatted_address': u'Plano, TX 75093, USA',
-                           u'geometry': {u'bounds': {u'northeast': {u'lat': 33.094414,
-                              u'lng': -96.766645},
-                             u'southwest': {u'lat': 33.007773, u'lng': -96.8602289}},
-                            u'location': {u'lat': 33.0386278, u'lng': -96.8243812},
-                            u'location_type': u'APPROXIMATE',
-                            u'viewport': {u'northeast': {u'lat': 33.065598, u'lng': -96.766645},
-                             u'southwest': {u'lat': 33.007773, u'lng': -96.8602289}}},
-                           u'partial_match': True,
-                           u'types': [u'postal_code']}],
-                         u'status': u'OK'}
+        cached_request = _get_default_google_resp()
 
 
         #cache that result into redis, so test code can get it
@@ -257,9 +259,15 @@ class TestSubmitGeoRequest(RedisEsSetupMixin, TestCase):
                             id=doc_id)['_source']
 
         geo_dict = extract_lang_lon_from_cached_result(cached_request)
-        item_geo = item["merchant"]["addresses"][0]["geo_location"]
+        item_geo = item["merchant"]["addresses"][0]
 
-        self.assertEqual(geo_dict, item_geo)
+        self.assertEqual(geo_dict["geo_location"], item_geo["geo_location"])
+        self.assertEqual(geo_dict["postal_code"], item_geo["postal_code"])
+        self.assertEqual(geo_dict["region"], item_geo["region"])
+        self.assertEqual(geo_dict["region_long"], item_geo["region_long"])
+        self.assertEqual(geo_dict["country"], item_geo["country"])
+        self.assertEqual(geo_dict["country_code"], item_geo["country_code"])
+
 
 
     def test_submit_geo_request_partial_success(self):
@@ -278,21 +286,15 @@ class TestSubmitGeoRequest(RedisEsSetupMixin, TestCase):
                         "phone_number": "214-577-1777",
                         "country_code": "US",
                         "country": "United States",
-                        "region": "TX",
-                        "postal_code": "75093",
                         "address_name": "Plano",
                         "address": "4716 Alliance Boulevard Pavillion II, Suite 270 Plano",
-                        "region_long": "Texas"
                      },
                      {
                         "phone_number": "443-546-3968",
                         "country_code": "US",
                         "country": "United States",
-                        "region": "MD",
-                        "postal_code": "21045",
                         "address_name": "Columbia",
                         "address": "6476 Dobbin Center Way Columbia",
-                        "region_long": "Maryland"
                      }
                   ]
                },
@@ -305,30 +307,7 @@ class TestSubmitGeoRequest(RedisEsSetupMixin, TestCase):
 
         doc_id = result.get("_id")
 
-        cached_request = {u'results': [
-                            {u'address_components': [{u'long_name': u'75093',
-                             u'short_name': u'75093',
-                             u'types': [u'postal_code']},
-                            {u'long_name': u'Plano',
-                             u'short_name': u'Plano',
-                             u'types': [u'locality', u'political']},
-                            {u'long_name': u'Texas',
-                             u'short_name': u'TX',
-                             u'types': [u'administrative_area_level_1', u'political']},
-                            {u'long_name': u'United States',
-                             u'short_name': u'US',
-                             u'types': [u'country', u'political']}],
-                           u'formatted_address': u'Plano, TX 75093, USA',
-                           u'geometry': {u'bounds': {u'northeast': {u'lat': 33.094414,
-                              u'lng': -96.766645},
-                             u'southwest': {u'lat': 33.007773, u'lng': -96.8602289}},
-                            u'location': {u'lat': 33.0386278, u'lng': -96.8243812},
-                            u'location_type': u'APPROXIMATE',
-                            u'viewport': {u'northeast': {u'lat': 33.065598, u'lng': -96.766645},
-                             u'southwest': {u'lat': 33.007773, u'lng': -96.8602289}}},
-                           u'partial_match': True,
-                           u'types': [u'postal_code']}],
-                         u'status': u'OK'}
+        cached_request = _get_default_google_resp()
 
 
         #cache that result into redis, so test code can get it
@@ -344,9 +323,11 @@ class TestSubmitGeoRequest(RedisEsSetupMixin, TestCase):
                             id=doc_id)['_source']
 
         geo_dict = extract_lang_lon_from_cached_result(cached_request)
-        item_geo = item["merchant"]["addresses"][0]["geo_location"]
+        item_geo = item["merchant"]["addresses"][0]
 
-        self.assertEqual(geo_dict, item_geo)
+        #print "GEO_DICT",geo_dict,
+        #print "ITEM_DICT"
+        _should_first_in_second(geo_dict, item_geo)
 
         #also we should have a new submission with one item which
         #will be the other address
@@ -354,11 +335,19 @@ class TestSubmitGeoRequest(RedisEsSetupMixin, TestCase):
         push_item = self.redis_conn.blpop(address_queue_key)[1]
         #print "PUSHED_ITEM ",push_item
         #check if it is the second address in item
-        item_id, address, region, postal_code = push_item.split(":")
+        item_id, address = push_item.split(":")
         self.assertEqual(item_id, doc_id)
         self.assertEqual(address, item["merchant"]["addresses"][1]["address"])
-        self.assertEqual(region, item["merchant"]["addresses"][1]["region_long"])
-        self.assertEqual(postal_code, item["merchant"]["addresses"][1]["postal_code"])
+
+
+
+def _should_first_in_second(first, second):
+    """
+    An util to check if all values in first are
+    in second and are identical
+    """
+    for k,v in first.iteritems():
+        assert second[k] == v
 
 
 class TestProcessGeoRequest(RedisEsSetupMixin, TestCase):
@@ -382,21 +371,15 @@ class TestProcessGeoRequest(RedisEsSetupMixin, TestCase):
                         "phone_number": "214-577-1777",
                         "country_code": "US",
                         "country": "United States",
-                        "region": "TX",
-                        "postal_code": "75093",
                         "address_name": "Plano",
                         "address": "4716 Alliance Boulevard Pavillion II, Suite 270 Plano",
-                        "region_long": "Texas"
                      },
                      {
                         "phone_number": "443-546-3968",
                         "country_code": "US",
                         "country": "United States",
-                        "region": "MD",
-                        "postal_code": "21045",
                         "address_name": "Columbia",
                         "address": "6476 Dobbin Center Way Columbia",
-                        "region_long": "Maryland"
                      }
                   ]
                },
@@ -410,30 +393,7 @@ class TestProcessGeoRequest(RedisEsSetupMixin, TestCase):
         doc_id = result.get("_id")
 
 
-        mock_response = {u'results': [
-                            {u'address_components': [{u'long_name': u'75093',
-                             u'short_name': u'75093',
-                             u'types': [u'postal_code']},
-                            {u'long_name': u'Plano',
-                             u'short_name': u'Plano',
-                             u'types': [u'locality', u'political']},
-                            {u'long_name': u'Texas',
-                             u'short_name': u'TX',
-                             u'types': [u'administrative_area_level_1', u'political']},
-                            {u'long_name': u'United States',
-                             u'short_name': u'US',
-                             u'types': [u'country', u'political']}],
-                           u'formatted_address': u'Plano, TX 75093, USA',
-                           u'geometry': {u'bounds': {u'northeast': {u'lat': 33.094414,
-                              u'lng': -96.766645},
-                             u'southwest': {u'lat': 33.007773, u'lng': -96.8602289}},
-                            u'location': {u'lat': 33.0386278, u'lng': -96.8243812},
-                            u'location_type': u'APPROXIMATE',
-                            u'viewport': {u'northeast': {u'lat': 33.065598, u'lng': -96.766645},
-                             u'southwest': {u'lat': 33.007773, u'lng': -96.8602289}}},
-                           u'partial_match': True,
-                           u'types': [u'postal_code']}],
-                         u'status': u'OK'}
+        mock_response = _get_default_google_resp()
 
 
         get_mock = MagicMock(return_value=GetJson(mock_response))
@@ -443,11 +403,8 @@ class TestProcessGeoRequest(RedisEsSetupMixin, TestCase):
                         "phone_number": "214-577-1777",
                         "country_code": "US",
                         "country": "United States",
-                        "region": "TX",
-                        "postal_code": "75093",
                         "address_name": "Plano",
                         "address": "4716 Alliance Boulevard Pavillion II, Suite 270 Plano",
-                        "region_long": "Texas"
                      }
 
         formatted_addr = format_str_address(address_dict)
@@ -467,8 +424,8 @@ class TestProcessGeoRequest(RedisEsSetupMixin, TestCase):
         cache_result = json.loads(self.redis_conn.get(cache_key))
         geo_dict = extract_lang_lon_from_cached_result(cache_result)
 
-        assert geo_dict["lat"]
-        assert geo_dict["lon"]
+        assert geo_dict["geo_location"]["lat"]
+        assert geo_dict["geo_location"]["lon"]
 
         #we should check the mocked request args
         args, kwargs = get_mock.call_args
@@ -502,5 +459,4 @@ class TestProcessGeoRequest(RedisEsSetupMixin, TestCase):
 
         #check if we have lat/lon
         address = fresh_item["merchant"]["addresses"][0]
-        #print "ADDRESS : ",address
-        self.assertEqual(address.has_key("geo_location"), True)
+        _should_first_in_second(geo_dict, address)

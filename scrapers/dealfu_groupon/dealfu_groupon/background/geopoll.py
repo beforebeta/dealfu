@@ -6,7 +6,8 @@ import calendar
 from elasticsearch.exceptions import TransportError
 import requests
 
-from dealfu_groupon.utils import get_redis, get_es, save_deal_item, extract_lang_lon_from_cached_result
+from dealfu_groupon.utils import get_redis, get_es, save_deal_item, extract_lang_lon_from_cached_result, \
+    merge_dict_items
 from dealfu_groupon.background.celery import app
 
 
@@ -101,6 +102,8 @@ def fetch_geo_addresses(settings, num_of_requests, delay):
         if result["status"] != "OK":
             #log something here and start waiting
             time.sleep(delay * 5)
+            #TODO! we should retry that entry here again
+            continue
 
 
         #submit the item to the cache
@@ -137,12 +140,17 @@ def update_save_item_addr(settings, item_id, formatted_addr, geo_result):
         geo_info = extract_lang_lon_from_cached_result(geo_result)
 
         should_save = False
-        for addr in item["merchant"]["addresses"]:
-            if addr["address"] == formatted_addr_lst[0] and addr["region_long"] == formatted_addr_lst[1]:
-                addr["geo_location"] = geo_info
+        index = -1
+        for i, addr in enumerate(item["merchant"]["addresses"]):
+            if addr["address"] == formatted_addr_lst[0]:
+                index = i
                 should_save = True
                 break
+
         if should_save:
+            #merge 2 addresses so we have the best of two
+            item["merchant"]["addresses"][index] = merge_dict_items(item["merchant"]["addresses"][index],
+                                                                    geo_info)
             save_deal_item(settings, item_id, item, es_conn=es)
 
     except TransportError,ex:

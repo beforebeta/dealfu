@@ -281,7 +281,7 @@ def merge_dict_items(first, second):
             #we are not interested in empty values
             continue
         elif isinstance(v, dict):
-            tmp = merge_dict_items(d3[k], second[k])
+            tmp = merge_dict_items(d3.get(k, {}), second[k])
             d3[k] = tmp
         else:
             d3[k] = v
@@ -323,15 +323,27 @@ def extract_lang_lon_from_cached_result(result):
     """
     Simple result extractor util
     """
-
-    results = result["results"][0]["geometry"]["location"]
+    fdict = {}
 
     #print "RESULTS : ",results
+    for r in result["results"][0]["address_components"]:
+        if "postal_code" in r["types"]:
+            fdict["postal_code"] = r["long_name"]
+        elif "administrative_area_level_1" in r["types"]:
+            fdict["region_long"] = r["long_name"]
+            fdict["region"] = r["short_name"]
+        elif "country" in r["types"]:
+            fdict["country_code"] = r["short_name"]
+            fdict["country"] = r["long_name"]
 
-    return {
-        "lat":results["lat"],
-        "lon":results["lng"],
+
+    geo = result["results"][0]["geometry"]["location"]
+    fdict["geo_location"] = {
+            "lat":geo["lat"],
+            "lon":geo["lng"]
     }
+
+    return fdict
 
 
 

@@ -6,7 +6,8 @@ import calendar
 from elasticsearch.exceptions import TransportError
 import requests
 
-from dealfu_groupon.utils import get_redis, get_es, save_deal_item, extract_lang_lon_from_cached_result
+from dealfu_groupon.utils import get_redis, get_es, save_deal_item, extract_lang_lon_from_cached_result, \
+    merge_dict_items
 from dealfu_groupon.background.celery import app
 
 
@@ -30,7 +31,7 @@ def is_valid_address(addr_dict):
     -address
     -region_long
     """
-    mandatory = ["address", "region_long"]
+    mandatory = ["address"]
     for m in mandatory:
         if not m in addr_dict:
             return False
@@ -93,14 +94,9 @@ def submit_geo_request(settings, item_id):
             cached_addr = json.loads(cached_addr)
 
             cached_coords = extract_lang_lon_from_cached_result(cached_addr)
-            lat = cached_coords["lat"]
-            lon = cached_coords["lon"]
+            merged_addr = merge_dict_items(address, cached_coords)
 
-            address["geo_location"] = {}
-            address["geo_location"]["lat"] = lat
-            address["geo_location"]["lon"] = lon
-
-            to_save.append(address)
+            to_save.append(merged_addr)
 
         else:
             logger.info("We have a cache miss {0} for {1}".format(formated_address, item_id))
@@ -113,6 +109,8 @@ def submit_geo_request(settings, item_id):
 
     #set on item
     if to_save:
+        merge_list = _merge_addr_lists(item["merchant"]["addresses"], to_save)
+        item["merchant"]["addresses"] = merge_list
         save_deal_item(settings, item_id, item)
         logger.info("Items : {0} saved with address info in db".format(item_id))
 
@@ -121,4 +119,17 @@ def submit_geo_request(settings, item_id):
 
 
 
+def _merge_addr_lists(first, second):
+    """
+    Merges two lists if "address" field is
+    same take the second otherwise get the first
+    """
+    merged_list = []
+    for f in first:
+        for s in second:
+            if f["address"] == s["address"]:
+                merged_list.append(s)
+            else:
+                merged_list.append(f)
 
+    return merged_list
