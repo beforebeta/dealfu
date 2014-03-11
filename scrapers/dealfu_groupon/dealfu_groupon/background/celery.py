@@ -1,10 +1,15 @@
 from __future__ import absolute_import
 from celery import Celery
 from dealfu_groupon.utils import from_obj_settings
+from scrapy.utils.project import get_project_settings
+
+settings = get_project_settings()
 
 app = Celery('dealfu_groupon.background',
-             broker='redis://192.168.0.113:6379/0',
-             backend='redis://192.168.0.113:6379/0',
+             broker='redis://{0}:{1}/0'.format(settings.get("REDIS_HOST"),
+                                               str(settings.get("REDIS_PORT"))),
+             backend='redis://{0}:{1}/0'.format(settings.get("REDIS_HOST"),
+                                               str(settings.get("REDIS_PORT"))),
              include=['dealfu_groupon.background.retry',
                       'dealfu_groupon.background.example',
                       'dealfu_groupon.background.geocode',
@@ -27,12 +32,11 @@ from celery.signals import celeryd_after_setup
 @celeryd_after_setup.connect
 def setup_direct_queue(sender, instance, **kwargs):
     #should find here a way fro different settings right !
-    from dealfu_groupon import dsettings
     from dealfu_groupon.background.geopoll import process_geo_requests
 
     #we need that one to be startd when system is up
-    settings_dict = from_obj_settings(dsettings)
-    process_geo_requests.delay(settings_dict)
+    settings = get_project_settings()
+    process_geo_requests.delay(settings)
 
 
 
