@@ -164,7 +164,7 @@ class GrouponSpider(Spider):
 
 
         #content information
-        d["title"] = sel.xpath('//h3[@class="deal-subtitle"]/text()')[0].extract().strip()
+        d["title"] = sel.xpath('//h2[@class="deal-page-title"]/text()')[0].extract().strip()
         if d.get("discount_percentage"):
             d["short_title"] = "{}% off at {}!".format("%s"%int(d["discount_percentage"]*100),
                                                        m.get("name"))
@@ -216,6 +216,9 @@ class GrouponSpider(Spider):
                 if data.get("dl_category_sub"):
                     d["category_slug"] = data["dl_category_sub"]
                     d["category_name"] = data["dl_category_sub"]
+                elif data.get("dl_category"):
+                    d["category_slug"] = data["dl_category"]
+                    d["category_name"] = data["dl_category"]
 
                 break
 
@@ -358,13 +361,18 @@ class GrouponSpider(Spider):
 
         #extracting some merchant data
         sel = Selector(response)
-        title = sel.xpath('//h2[@class="deal-page-title"]/text()')[0].extract().strip()
 
-        res = re.search("(.*)\s+\-\s+(.*)", title)
-        if not res:
+        merchant_name_xp = sel.xpath('//div[@class="merchant-profile"]/*[1]/text()')
+        if not merchant_name_xp:
+            merchant_name_xp = sel.xpath('//aside[@data-bhw="MerchantBox"]/*[1]/text()')
+            #sometimes it is in a div
+
+        if not merchant_name_xp:
+            #we can not have a merchant without name
             return {}
 
-        merchant_name = res.group(1).strip()
+
+        merchant_name = get_first_from_xp(merchant_name_xp).strip()
         m["name"] = merchant_name
 
         #extract address info
@@ -411,20 +419,14 @@ class GrouponSpider(Spider):
         #try to match the whole address
         addr_text = " ".join(text_list)
         #print "ADDR_TEXT : ",addr_text
-        res = re.search("(.*),\s*((\w+\s*)+)(\d{5})", addr_text)
+        res = re.search("(.*)(\d{3}\-\d{3}\-\d{4})", addr_text)
+
         if res:
             final_address = res.group(1).strip()
             ma["address"] = final_address
-            ma["region_long"] = res.group(2).strip()
-            ma["region"] = get_short_region_name(res.group(2))
-
-            #locality at that stage ?
-            ma["postal_code"] = res.group(4)
-
-            #check for phone number
-            res = re.search("(\d{3}\-\d{3}\-\d{4})", addr_text)
-            if res:
-                ma["phone_number"] = res.group().strip()
+            ma["phone_number"] = res.group(2).strip()
+        else:
+            ma["address"] = addr_text.strip()
 
         return ma
 
