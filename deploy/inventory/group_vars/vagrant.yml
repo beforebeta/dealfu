@@ -37,7 +37,7 @@ scrappers:
   requirements: ${project.code}requirements.txt
   resources: ${scrappers.root}resources/
   settings_dir: ${scrappers.root}dealfu_groupon/
-  settings: staging
+  settings: dealfu_groupon.dsettings.staging
   scrapy_bin: ${project.virtualenv}bin/scrapy
 
 
