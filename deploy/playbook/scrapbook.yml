@@ -10,13 +10,6 @@
   hosts: appservers
   sudo: yes
   roles:
-    - role: eggsby.supervise
-      supervisor_virtualenv: "{{project.root}}venv"
-      name: webserver
-      command: python -m SimpleHTTPServer 9999
-      directory: "{{scrappers.root}}"
-      app_home: '{{project.root}}apps'
-      user: "{{project.user}}"
 
     - role: eggsby.supervise
       supervisor_virtualenv: "{{project.root}}venv"
@@ -25,6 +18,11 @@
       directory: "{{scrappers.root}}"
       app_home: '{{project.root}}apps'
       user: "{{project.user}}"
+      autostart: false
+      app_env:
+        PYTHONPATH: "{{scrappers.root}}"
+        SCRAPY_SETTINGS_MODULE: "{{scrappers.settings}}"
+
 
     - role: eggsby.supervise
       supervisor_virtualenv: "{{project.root}}venv"
@@ -33,6 +31,9 @@
       directory: "{{scrappers.root}}"
       app_home: '{{project.root}}apps'
       user: "{{project.user}}"
+      app_env:
+        PYTHONPATH: "{{scrappers.root}}"
+        SCRAPY_SETTINGS_MODULE: "{{scrappers.settings}}"
 
     - role: eggsby.supervise
       supervisor_virtualenv: "{{project.root}}venv"
@@ -41,6 +42,9 @@
       directory: "{{scrappers.root}}"
       app_home: '{{project.root}}apps'
       user: "{{project.user}}"
+      app_env:
+        PYTHONPATH: "{{scrappers.root}}"
+        SCRAPY_SETTINGS_MODULE: "{{scrappers.settings}}"
 
     - role: eggsby.supervise
       supervisor_virtualenv: "{{project.root}}venv"
@@ -49,3 +53,6 @@
       directory: "{{scrappers.root}}"
       app_home: '{{project.root}}apps'
       user: "{{project.user}}"
+      app_env:
+        PYTHONPATH: "{{scrappers.root}}"
+        SCRAPY_SETTINGS_MODULE: "{{scrappers.settings}}"
