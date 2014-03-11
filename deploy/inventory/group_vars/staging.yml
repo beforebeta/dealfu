@@ -7,6 +7,7 @@ project:
   mode: live
   root: /var/www/virtualhosts/dealfu/
   virtualenv: ${project.root}venv/
+  interpreter: ${project.virtualenv}bin/python
   code: ${project.root}code/
   requirements: ${project.code}requirements.txt
 
@@ -31,8 +32,12 @@ django:
 
 
 scrappers:
-  root: ${project.code}/scrappers/dealfu_groupon/
-  resources: ${scappers.root}resources
+  root: ${project.code}scrapers/dealfu_groupon/
+  requirements: ${project.code}requirements.txt
+  resources: ${scrappers.root}resources/
+  settings_dir: ${scrappers.root}dealfu_groupon/
+  settings: dealfu_groupon.dsettings.staging
+  scrapy_bin: ${project.virtualenv}bin/scrapy
 
 
 #database:
