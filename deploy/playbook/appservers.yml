@@ -12,17 +12,3 @@
   roles:
   - { role: uwsgi }
   - { role: django }
-
-
-- name : Configure Scrappy
-  hosts: appservers
-  sudo: yes
-  tasks:
-    - name: "set correct settings in file"
-      lineinfile: >
-        dest="{{scrappers.settings_dir}}settings.py"
-        line="from dealfu_groupon.dsettings.{{scrappers.settings}} import *"
-        regexp="^from dealfu_groupon"
-  tags:
-    - scrapy
-    - config
