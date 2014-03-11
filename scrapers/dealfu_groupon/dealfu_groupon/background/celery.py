@@ -1,6 +1,5 @@
 from __future__ import absolute_import
 from celery import Celery
-from dealfu_groupon.utils import from_obj_settings
 from scrapy.utils.project import get_project_settings
 
 settings = get_project_settings()
