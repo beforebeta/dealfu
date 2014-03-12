@@ -39,8 +39,10 @@ def update_query_per_page(d, per_page):
     d["query"]["per_page"] = per_page
     return d
 
-def update_query_location(d, location):
-    d["query"]["location"] = {}
+def update_query_location(d, location, radius):
+    d["query"]["location"] = location
+    d["query"]["radius"] = radius
+
     return d
 
 def update_query_online(d, online):
@@ -60,9 +62,6 @@ def _get_order_lists(order_str):
     so we have to split by comma and then filter those
     that are ending with _desc
     """
-    asc_list = []
-    desc_list = []
-
     ordered_list = [o.strip() for o in order_str.split(",") if o.strip()]
     if not ordered_list:
         return (), ()
@@ -115,6 +114,24 @@ class DealsListView(APIView):
 
             es = es.filter_category_slugs(category_slugs)
 
+        if params.get("location"):
+            lat, lon = params.get("location").strip().split(",")
+            lat = float(lat)
+            lon = float(lon)
+
+
+            radius = 10 #default value TODO move to settings
+            if params.get("radius"):
+                radius = int(params.get("radius"))
+
+            query = update_query_location(query, {
+                "latitude":lat,
+                "longitude":lon
+            }, radius)
+
+
+            es = es.filter_geo_location(lat, lon, miles=radius)
+
 
         if params.get("order"):
             asc, desc = _get_order_lists(params.get("order"))
@@ -122,7 +139,7 @@ class DealsListView(APIView):
 
 
         #put those in settings
-        page = 0
+        page = 1
         per_page = 10
 
         if params.get("page"):
@@ -135,7 +152,7 @@ class DealsListView(APIView):
 
 
         #the pagination will be here !
-        es = es.filter_page(page=page,
+        es = es.filter_page(page=page-1,
                             per_page=per_page)
 
 
