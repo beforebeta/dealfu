@@ -29,7 +29,7 @@ class DealMerchantAddress(serializers.Serializer):
 
     region = serializers.CharField()
     phone_number = serializers.CharField()
-    address = serializers.CharField()
+
     postal_code = serializers.CharField()
     country_code = serializers.CharField()
     country = serializers.CharField()
@@ -37,10 +37,52 @@ class DealMerchantAddress(serializers.Serializer):
 
 class DealMerchantSerializer(serializers.Serializer):
 
+
     name = serializers.CharField()
     url = serializers.CharField()
-    addresses = DealMerchantAddress(many=True)
 
+    #address info here
+    address = serializers.CharField()
+    region = serializers.CharField()
+    postal_code = serializers.CharField()
+    country_code = serializers.CharField()
+    country = serializers.CharField()
+    latitude = serializers.FloatField()
+    longitude = serializers.FloatField()
+
+    def to_native(self, obj):
+        """
+        Should transform the object into something else
+        Because our data in database is in format like :
+
+        :merchant : addresses [...]
+
+        we should extract the first address from list and put
+        it into the object !!
+
+        """
+        address = obj.get("addresses")
+        if address:
+            address = address[0]
+        else:
+            return super(DealMerchantSerializer, self).to_native(obj)
+
+        #now we should put the fields into obj
+        del obj["addresses"]
+
+        obj["address"] = address.get("address")
+        obj["region"] = address.get("region")
+        obj["postal_code"] = address.get("postal_code")
+        obj["country_code"] = address.get("country_code")
+        obj["country"] = address.get("country")
+
+        #get the latitude and  longtitude info here
+        if address.get("geo_location"):
+            obj["latitude"] = address["geo_location"]["lat"]
+            obj["longitude"] = address["geo_location"]["lon"]
+
+
+        return super(DealMerchantSerializer, self).to_native(obj)
 
 class EsMerchantField(EsFieldMixin, serializers.CharField):
 
