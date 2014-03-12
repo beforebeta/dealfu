@@ -1,4 +1,5 @@
 from copy import copy
+from dealfu.utils import find_nearest_address
 from django.conf import settings
 import elasticsearch
 
@@ -74,6 +75,7 @@ class EsBaseQueryMixin(object):
         """
         That seems to be a better name for getting data
         """
+        #print "QUERY : ",self._query
         result = self.handle.search(index=self.index,
                                     doc_type=self.doc_type,
                                     body=self._query)
@@ -90,7 +92,7 @@ class EsBaseQueryMixin(object):
         """
         Filters per page
         """
-        self._query["from"]= page
+        self._query["from"]= page * per_page
         self._query["size"] = per_page
 
         #print self._query
@@ -137,7 +139,6 @@ class EsDealCategoryQuery(EsHandleMixin, EsBaseQueryMixin):
         self._query = copy(self._default_query)
 
 
-
 class EsDealsQuery(EsHandleMixin, EsBaseQueryMixin):
 
     index = settings.ES_INDEX
@@ -146,17 +147,48 @@ class EsDealsQuery(EsHandleMixin, EsBaseQueryMixin):
     def __init__(self):
 
         self.total = 0
+
         self._default_query = {
-            "query":{
+            "query": {
                 "filtered":{
-                    "query":{
-                        "match_all":{}
+                    "filter": {
+                        "and": {
+                            "filters": []
+                        }
                     }
                 }
             }
         }
 
         self._query = copy(self._default_query)
+
+        #geo info resetting
+        self._geo_enabled = False
+        self._geo_params = {}
+
+
+    def _get_and_filter(self):
+        """
+        Returns back the and filter from internal query
+        """
+        return self._query["query"]["filtered"]["filter"]["and"]["filters"]
+
+
+
+    def _get_filter_bool(self):
+        """
+        Gets the bool part of filter query
+        """
+        and_filter = self._get_and_filter()
+        for f in and_filter:
+            if f.has_key("bool"):
+                return f
+
+        bools = {"bool":{}}
+        and_filter.append(bools)
+
+        return bools
+
 
 
 
@@ -167,27 +199,35 @@ class EsDealsQuery(EsHandleMixin, EsBaseQueryMixin):
         self._query = copy(self._default_query)
         self.total = 0
 
+        self._geo_enabled = False
+        self._geo_params = {}
+
+
 
     def filter_query(self, query):
         """
         Filters according to query
         """
         q = {
-               "bool":{
-                "should" : [
-                    {
-                        "term" : { "title" : query }
-                    },
-                    {
-                        "term" : { "description" : query }
-                    },
-                    {
-                        "term" : { "fine_print" : query }
-                    }
-                ]
+            "query":{
+                "bool":{
+                    "should":[
+                        {
+                            "term" : { "title" : query }
+                        },
+                        {
+                            "term" : { "description" : query }
+                        },
+                        {
+                            "term" : { "fine_print" : query }
+                        }
+                    ]
+                }
             }
         }
-        self._query["query"]["filtered"]["query"] = q
+
+        and_filter = self._get_and_filter()
+        and_filter.append(q)
         return self
 
 
@@ -196,7 +236,7 @@ class EsDealsQuery(EsHandleMixin, EsBaseQueryMixin):
         """
         Filters the online true false
         """
-        boolq = self._get_filter_bool()
+        boolq = self._get_filter_bool()["bool"]
         if boolq.get("must"):
             boolq["must"].append({"term":{"online":online}})
         else:
@@ -220,28 +260,39 @@ class EsDealsQuery(EsHandleMixin, EsBaseQueryMixin):
         return self
 
 
-
-    def _get_filter_bool(self):
-        """
-        Gets the bool part of filter query
-        """
-        filtered = self._query["query"]["filtered"]
-        if not filtered.get("filter"):
-           self._query["query"]["filtered"].update(self._get_default_filter())
-
-        filtered = self._query["query"]["filtered"]
-
-        boolq = filtered["filter"]["bool"]
-        return boolq
-
-
-
-    def _get_default_filter(self):
-        """
-        The default filter query
-        """
-        return {
-            "filter":{
-                "bool":{}
+    def filter_geo_location(self, lat, lon, miles=10):
+        geo_dict = {
+            "geo_distance": {
+                "distance": "%dmi"%miles,
+                "merchant.addresses.geo_location": {
+                    "lat": lat,
+                    "lon": lon
+                }
             }
         }
+
+        and_filter = self._get_and_filter()
+        and_filter.append(geo_dict)
+
+        #enable geo params
+        self._geo_enabled = True
+        self._geo_params["lat"] = lat
+        self._geo_params["lon"] = lon
+
+        return self
+
+
+    def _add_to_and_filter(self, d):
+        """
+        Adds the supplied dictionary into and filter
+        TODO: implement those
+        """
+        pass
+
+    def _add_to_bool_filter(self, d):
+        """
+        Adds the supplied dictionary into bool filter
+        it should contain some sort of "should", "must" and etc
+        TODO: implement
+        """
+        pass
