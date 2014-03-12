@@ -48,7 +48,7 @@ class GrouponSpider(Spider):
             if not self.only_one_deal:
                 #put it to start with los-angeles
                 self.start_urls = [
-                    "https://www.groupon.com/browse/deals/partial?division=los-angeles&isRefinementBarDisplayed=true&facet_group_filters=topcategory%7Ccategory%7Ccategory2%7Ccategory3%3Bdeal_type%3Bcity%7Cneighborhood&page=1"
+                    "https://www.groupon.com/browse/deals/partial?division=new-york&isRefinementBarDisplayed=true&facet_group_filters=topcategory%7Ccategory%7Ccategory2%7Ccategory3%3Bdeal_type%3Bcity%7Cneighborhood&page=1"
                 ]
             else:
                 #if it is only one deal we should go from here and parse only it
