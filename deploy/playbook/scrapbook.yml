@@ -14,7 +14,7 @@
     - role: eggsby.supervise
       supervisor_virtualenv: "{{project.root}}venv"
       name: scrapy_groupon
-      command: "{{scrappers.scrapy_bin}} crawl groupon -a num_of_deals=2"
+      command: "{{scrappers.scrapy_bin}} crawl groupon"
       directory: "{{scrappers.root}}"
       app_home: '{{project.root}}apps'
       user: "{{project.user}}"
