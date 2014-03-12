@@ -75,7 +75,7 @@ class EsBaseQueryMixin(object):
         """
         That seems to be a better name for getting data
         """
-        #print "QUERY : ",self._query
+        print "QUERY : ",self._query
         result = self.handle.search(index=self.index,
                                     doc_type=self.doc_type,
                                     body=self._query)
@@ -153,7 +153,13 @@ class EsDealsQuery(EsHandleMixin, EsBaseQueryMixin):
                 "filtered":{
                     "filter": {
                         "and": {
-                            "filters": []
+                            "filters": [
+                                {
+                                    "query": {
+                                        "match_all": {}
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -227,7 +233,17 @@ class EsDealsQuery(EsHandleMixin, EsBaseQueryMixin):
         }
 
         and_filter = self._get_and_filter()
-        and_filter.append(q)
+
+        #we should have only one query so lets check if have another one
+        found = False
+        for a in and_filter:
+            if a.has_key("query"):
+                a["query"] = q["query"]
+                found = True
+                break
+        if not found:
+            and_filter.append(q)
+
         return self
 
 
