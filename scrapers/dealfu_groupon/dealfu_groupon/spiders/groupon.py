@@ -219,6 +219,9 @@ class GrouponSpider(Spider):
                 elif data.get("dl_category"):
                     d["category_slug"] = data["dl_category"]
                     d["category_name"] = data["dl_category"]
+                elif data.get("dl_channel"):
+                    d["category_slug"] = data["dl_channel"]
+                    d["category_name"] = data["dl_channel"]
 
                 break
 
