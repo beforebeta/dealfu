@@ -31,7 +31,7 @@ class EsDeals(EsHandleMixin):
     def __init__(self):
         self.index = settings.ES_INDEX
         self.doc_type = settings.ES_INDEX_TYPE_DEALS
-        self.handle = self.get_es_handle()
+        #self.handle = self.get_es_handle()
 
 
     def get(self, obj_id):
