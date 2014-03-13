@@ -56,7 +56,7 @@ def update_query_category_slugs(d, category_slugs):
 
 
 
-def _get_order_lists(order_str):
+def _get_order_lists(order_str, valid_keys):
     """
     By default the order field is a little bit complex
     so we have to split by comma and then filter those
@@ -69,6 +69,11 @@ def _get_order_lists(order_str):
     asc_list = filter(lambda o:not o.endswith("_desc"), ordered_list)
     desc_list = filter(lambda o:o.endswith("_desc"), ordered_list)
     desc_list = [o.replace("_desc","") for o in desc_list]
+
+    #finally we should remove those that are not supported
+    asc_list = [a for a in asc_list if a in valid_keys]
+    desc_list = [d for d in desc_list if d in valid_keys]
+
 
     return asc_list, desc_list
 
@@ -139,14 +144,36 @@ class DealsListView(APIView):
             es = es.filter_geo_location(lat, lon, miles=radius)
 
 
+
+
         if params.get("order"):
-            asc, desc = _get_order_lists(params.get("order"))
-            es = es.order_by(asc, desc)
+            asc, desc = _get_order_lists(params.get("order"),
+                                         settings.API_DEALS_SORT_KEYS)
+            #we have a distance param which is should be handled
+            #differently than others
+            if "distance" in asc:
+                asc.remove("distance")
+                if context.has_key("geo_info"):
+                    es = es.order_by_distance(context["geo_info"]["latitude"],
+                                              context["geo_info"]["longitude"],
+                                              order="asc")
+
+            if "distance" in desc:
+                desc.remove("distance")
+                if context.has_key("geo_info"):
+                    es = es.order_by_distance(context["geo_info"]["latitude"],
+                                              context["geo_info"]["longitude"],
+                                              order="desc")
+
+            #we should remove those that are not supported ?
+            if asc or desc:
+                es = es.order_by(asc, desc)
 
 
         #put those in settings
         page = 1
-        per_page = 10
+        per_page = settings.API_DEALS_PER_PAGE
+
 
         if params.get("page"):
             query = update_query_page(query, params.get("page"))

@@ -246,6 +246,10 @@ WSGI_APPLICATION = '%s.wsgi.application' % SITE_NAME
 
 ######### REST AUTH KEY
 AUTH_KEY = "v3r1s3cret"
+#valid sorting keys
+API_DEALS_SORT_KEYS = ["number_sold", "price", "value", "expires_at", "updated_at", "distance"]
+API_DEALS_PER_PAGE = 10
+
 
 #ES index information
 ES_INDEX = "dealfu"
