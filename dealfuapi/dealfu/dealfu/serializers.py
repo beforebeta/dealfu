@@ -1,3 +1,4 @@
+from dealfu.utils import find_nearest_address
 from rest_framework import serializers
 
 
@@ -63,7 +64,15 @@ class DealMerchantSerializer(serializers.Serializer):
         """
         address = obj.get("addresses")
         if address:
-            address = address[0]
+            #at that stage we should check if geo_info is enabled we
+            # should get the nearest address to the one that was supplied
+            if self.context.has_key("geo_info"):
+                lon = self.context["geo_info"]["longitude"]
+                lat = self.context["geo_info"]["latitude"]
+                address = find_nearest_address(lon, lat, address)
+            else:
+                address = address[0]
+
         else:
             return super(DealMerchantSerializer, self).to_native(obj)
 
@@ -88,7 +97,7 @@ class EsMerchantField(EsFieldMixin, serializers.CharField):
 
     def field_to_native(self, obj, field_name):
         native = super(EsMerchantField, self).field_to_native(obj, field_name)
-        return DealMerchantSerializer(instance=native).data
+        return DealMerchantSerializer(instance=native, context=self.context).data
 
 
 class DealSerializer(serializers.Serializer):

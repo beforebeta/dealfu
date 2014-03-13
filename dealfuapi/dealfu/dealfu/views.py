@@ -96,6 +96,7 @@ class DealsListView(APIView):
         """
         Gets a list of the deals from db
         """
+        context = {} #the context for serializer
         es = EsDealsQuery()
         params = request.QUERY_PARAMS
         query = get_query_default()
@@ -124,10 +125,15 @@ class DealsListView(APIView):
             if params.get("radius"):
                 radius = int(params.get("radius"))
 
-            query = update_query_location(query, {
+            geo_dict = {
                 "latitude":lat,
                 "longitude":lon
-            }, radius)
+            }
+
+            query = update_query_location(query, geo_dict, radius)
+
+            #update the context here
+            context["geo_info"] = geo_dict
 
 
             es = es.filter_geo_location(lat, lon, miles=radius)
@@ -159,7 +165,7 @@ class DealsListView(APIView):
         docs = es.fetch()
         query = update_query_total(query, es.total)
         #print "FINAL_QUERY : ",query
-        serializer = DealSerializer(instance=docs, many=True)
+        serializer = DealSerializer(instance=docs, many=True, context=context)
         data = {"deals":serializer.data}
         data.update(query)
         return Response(data)
