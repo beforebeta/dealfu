@@ -107,11 +107,34 @@ class EsBaseQueryMixin(object):
         asc_sorts = [{o:"asc"} for o in asc_list]
         desc_sorts = [{o:"desc"} for o in desc_list]
 
-        sort_dict = {"sort" : asc_sorts + desc_sorts}
+        sort_list = self._query.get("sort", [])
+        sort_list.extend(asc_sorts)
+        sort_list.extend(desc_sorts)
+
+        sort_dict = {"sort" : sort_list}
         self._query.update(sort_dict)
 
         return self
 
+
+    def order_by_distance(self, lat, lon, order="asc"):
+        """
+        It is a separate order_by method because we should handle
+        that one differently, its structure is kind of different
+        """
+        d = {
+            "_geo_distance": {
+                "merchant.addresses.geo_location":[lon, lat],
+                "unit":"mi",
+                "order": order
+          }
+        }
+
+        sort_list = self._query.get("sort", [])
+        sort_list.append(d)
+        self._query.update({"sort":sort_list})
+
+        return self
 
 
 class EsDealCategoryQuery(EsHandleMixin, EsBaseQueryMixin):
