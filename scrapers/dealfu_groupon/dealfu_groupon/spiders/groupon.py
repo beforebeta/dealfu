@@ -172,7 +172,11 @@ class GrouponSpider(Spider):
         #description extraction WARN: XPATH MAGIC!!!
         desc_list = sel.xpath('//article[contains(@class, "pitch")]/div[contains(@class, "discussion")]/preceding-sibling::node()').extract()
         d["description"] = "".join([desc.strip() for desc in desc_list if desc.strip()])
-        d["fine_print"] = None
+
+        #extract fine_print information
+        tmp_fine_print = self._extract_fine_print(response)
+        d.update(tmp_fine_print)
+
 
         #number sold
         sold_xp = sel.xpath('//div[@class="deal-status"]//span/text()')
@@ -197,6 +201,23 @@ class GrouponSpider(Spider):
 
         return d
 
+
+    def _extract_fine_print(self, response):
+        """
+        Extracts the fine_print information
+        """
+        d = {"fine_print":None}
+
+        sel = Selector(response)
+
+        fine_print_xp = get_first_from_xp(sel.xpath('//div[contains(@class, "fine-print")]//p/text()'))
+        if not fine_print_xp:
+            return d
+
+        fine_print = "".join([f.strip() for f in fine_print_xp.split("\n")])
+        d["fine_print"] = fine_print
+
+        return d
 
     def _extract_category_info(self, response):
         """
