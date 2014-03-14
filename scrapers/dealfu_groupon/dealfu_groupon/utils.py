@@ -222,12 +222,18 @@ def needs_retry(item):
     - discount_percentage
     """
 
-    mandatory = ("category_name",
+    mandatory_offline = ("category_name",
                 "category_slug",
                 "description",
                 "title",
                 "short_title",
                 "merchant",)
+
+    mandatory_online = ("category_name",
+                "category_slug",
+                "description",
+                "title",
+                "short_title",)
 
     merchant_mandatory = (
         "name",
@@ -240,16 +246,23 @@ def needs_retry(item):
         "discount_percentage",
     )
 
+    if item["online"]:
+        mandatory = mandatory_online
+    else:
+        mandatory = mandatory_offline
+
     if any([False if item.get(f) else True for f in mandatory]):
         return True
 
-    merchant = item.get("merchant")
-    if any([False if merchant.get(f) else True for f in merchant_mandatory]):
-        return True
+    if not item["online"]:
+        #if it is online those ar not relevant
+        merchant = item.get("merchant")
+        if any([False if merchant.get(f) else True for f in merchant_mandatory]):
+            return True
 
-    #now check if we have at least the address
-    if not merchant.get("addresses")[0].get("address"):
-        return True
+        #now check if we have at least the address
+        if not merchant.get("addresses")[0].get("address"):
+            return True
 
     #check the optional pieces here
     if not any([True if item.get(f) else False for f in optional]):
