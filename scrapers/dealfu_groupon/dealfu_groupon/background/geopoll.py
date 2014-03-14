@@ -114,8 +114,8 @@ def fetch_geo_addresses(settings, num_of_requests, delay):
         logger.info("Item submitted to the cache with key : {0}".format(cache_key))
 
         #at that point we should update the specified item's lat and lon
-        update_save_item_addr(settings, item_id, cache_addr, result)
-        logger.info("Item : {0} updated with geo info ".format(item_id))
+        if update_save_item_addr(settings, item_id, cache_addr, result):
+            logger.info("Item : {0} updated with geo info ".format(item_id))
 
         #wait for the desired time
         time.sleep(delay)
