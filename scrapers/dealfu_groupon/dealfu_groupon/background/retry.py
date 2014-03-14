@@ -1,14 +1,22 @@
-import datetime
+import requests
+import traceback
 
-from twisted.internet import reactor
-
-from scrapy.crawler import Crawler
-from scrapy import log, signals
-from scrapy.utils.project import get_project_settings
-
-from redis import Redis
+from scrapy.exceptions import DropItem
+from scrapy.http.response.html import HtmlResponse
 
 from dealfu_groupon.background.celery import app
+from dealfu_groupon.pipelines.retrypipe import RetryPipeLine
+
+
+try:
+    #sometimes fails inside the tests
+    from celery.utils.log import get_task_logger
+    logger = get_task_logger(__name__)
+except ImportError:
+    import logging
+    logger = logging.getLogger(__name__)
+
+
 
 @app.task
 def retry_document(settings, redis_key, doc):
@@ -19,36 +27,43 @@ def retry_document(settings, redis_key, doc):
     #before we go further we may want to check if we should try ?
     from dealfu_groupon.spiders.groupon import GrouponSpider
 
-    spider = GrouponSpider(only_one_deal=True,
-                           pipeline=["dealfu_groupon.pipelines.retrypipe.RetryPipeLine"],
-                           one_url=doc.get("untracked_url"),
-                           doc_id=doc.get("id"))
+    pipe = RetryPipeLine(settings, redis_key, doc["id"], logger)
+    retry_dict = pipe.get_retry_dict()
 
-    settings = get_project_settings()
-    crawler = Crawler(settings)
-    crawler.signals.connect(reactor.stop, signal=signals.spider_closed)
-    crawler.configure()
-    crawler.crawl(spider)
-    crawler.start()
-    log.start(logstdout=False)
-    reactor.run() # the script will block here until the spider_closed signal was sent
+    #first fetch the item from groupon
+    resp = None
+    try:
+        result = requests.get(doc["untracked_url"])
+        resp = HtmlResponse(url=doc["untracked_url"], body=result.content)
+    except Exception,ex:
+        logger.error("Error when fetching url : {}".format(traceback.format_exc()))
+        return pipe.fail_or_retry(retry_dict, doc)
 
-    #check the status on redis
-    #and if the items is retried successfully
-    #then don't reschedule it again !
-    redis_conn = Redis(host=settings.get("REDIS_HOST"),
-                        port=settings.get("REDIS_PORT"))
+    spider = GrouponSpider()
+    item = spider.parse_deal(resp)
+    item["id"] = doc["id"]
 
-    if not redis_conn.exists(redis_key):
-        raise Exception("Non existing retry url task ! : "+redis_key)
+    #try processing it
+    try:
+        result = pipe.process_item(item)
+        if not result:
+            #retry or finish
+            return pipe.fail_or_retry(retry_dict, doc)
+        else:
+            # we are done we should
+            # update the item here !
+            pipe.update_item_finish(result, retry_dict)
+            return "FINISHED SUCCESS"
+    except DropItem, ex:
+        logger.error("Invalid item can not be retried : {}".format(traceback.format_exc()))
+        pipe.mark_failed(retry_dict)
+        return "FAILED"
+    except Exception,ex:
+        logger.error("There was some error when retrying {}: {}".format(
+            doc["id"], traceback.format_exc()))
+        return pipe.fail_or_retry(retry_dict, doc)
 
-    retry_dict = redis_conn.hgetall(redis_key)
-    finish_statuses = [settings.get("REDIS_RETRY_STATUS_FAILED"),
-                       settings.get("REDIS_RETRY_STATUS_FINISHED")]
 
-    if retry_dict["status"] in finish_statuses:
-        return "FINISHED !"
+    return "FAILED NOWHERE !"
 
-    #retry it again
-    retry_document.apply_async(args=[settings, redis_key, doc],
-                               eta = datetime.datetime.utcnow() + datetime.timedelta(seconds=settings.get("REDIS_RETRY_DELAY")))
+
