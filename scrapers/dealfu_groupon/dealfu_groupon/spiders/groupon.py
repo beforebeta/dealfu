@@ -7,15 +7,12 @@ from scrapy.http import Request
 from scrapy.spider import Spider
 from scrapy.selector import Selector
 from dateutil.relativedelta import relativedelta
-#for page that require JS
-from selenium import webdriver
 
 from dealfu_groupon.items import DealfuItem, MerchantItem
 from dealfu_groupon.utils import get_fresh_merchant_address, get_short_region_name, get_first_from_xp, extract_query_params, replace_query_param, \
     iter_divisions, clean_float_values
 
 from dealfu_groupon.pipelines import espipe
-from selenium.common.exceptions import NoSuchElementException
 
 
 class GrouponSpider(Spider):
@@ -148,7 +145,10 @@ class GrouponSpider(Spider):
 
         #the url of the deal
         d["untracked_url"] = response.url
-        d["online"] = True
+
+        #check for online=True/False of deal
+        tmp_online = self._extract_online_deal(response)
+        d.update(tmp_online)
 
         #get pricing information
         price_dict = self._extract_price_info(response)
@@ -166,8 +166,11 @@ class GrouponSpider(Spider):
         #content information
         d["title"] = sel.xpath('//h2[@class="deal-page-title"]/text()')[0].extract().strip()
         if d.get("discount_percentage"):
-            d["short_title"] = "{}% off at {}!".format("%s"%int(d["discount_percentage"]*100),
+            if m.get("name"):
+                d["short_title"]= "{}% off at {}!".format("%s"%int(d["discount_percentage"]*100),
                                                        m.get("name"))
+            else:
+                d["short_title"]= "{}% off!".format("%s"%int(d["discount_percentage"]*100))
 
         #description extraction WARN: XPATH MAGIC!!!
         desc_list = sel.xpath('//article[contains(@class, "pitch")]/div[contains(@class, "discussion")]/preceding-sibling::node()').extract()
@@ -210,14 +213,35 @@ class GrouponSpider(Spider):
 
         sel = Selector(response)
 
-        fine_print_xp = get_first_from_xp(sel.xpath('//div[contains(@class, "fine-print")]//p/text()'))
+        fine_print_xp = sel.xpath('//div[contains(@class, "fine-print")]//p/text()')
         if not fine_print_xp:
             return d
 
-        fine_print = "".join([f.strip() for f in fine_print_xp.split("\n")])
+        fine_print_lst = [f.extract().strip() for f in fine_print_xp]
+        fine_print_lst = [f for f in fine_print_lst if f]
+        fine_print = "".join(fine_print_lst)
+
+        fine_print = "".join([f.strip() for f in fine_print.split("\n")])
         d["fine_print"] = fine_print
 
         return d
+
+    def _extract_online_deal(self, response):
+        """
+        Checks if the deal is online or offline
+        """
+        d = {"online":False}
+        sel = Selector(response)
+
+        online_xp = get_first_from_xp(sel.xpath('//h3[@class="deal-subtitle"]/text()'))
+        if not online_xp:
+            return d
+
+        if "online" in online_xp.strip().lower():
+            d["online"] = True
+
+        return d
+
 
     def _extract_category_info(self, response):
         """
@@ -338,42 +362,6 @@ class GrouponSpider(Spider):
         return d
 
 
-    def _extract_price_selenium(self, response):
-        """
-        CAUTION that will block the whole process !!!
-        """
-        d = {}
-        d["commission"] = 0
-
-        url = response.url
-        driver = webdriver.PhantomJS()
-        driver.get(url)
-
-        try:
-            price_el = driver.find_element_by_xpath('//div[@id="purchase-cluster"]//div[@class="from-minimum"]')
-            val_el = driver.find_element_by_xpath('//div[@id="purchase-cluster"]//div[@class="market-minimum"]')
-
-            price_txt = price_el.text
-            val_txt = val_el.text
-
-            d["price"] = clean_float_values(price_txt, "$", ",")
-            d["value"] = clean_float_values(val_txt, "$", ",")
-
-            if not d["value"] or not d["price"]:
-                    return d
-
-            d["discount_amount"] = d["value"] - d["price"]
-
-            discount_percentage = d["discount_amount"] / d["value"]
-            discount_percentage = float("%.2f"%discount_percentage)
-            d["discount_percentage"] = discount_percentage
-
-
-        except NoSuchElementException, ex:
-            pass
-
-        #driver.close()
-        return d
 
     def _extract_merchant_info(self, response):
         """
