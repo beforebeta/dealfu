@@ -3,7 +3,6 @@ from copy import copy
 from dealfu_groupon.background.geocode import is_valid_address, submit_geo_request
 
 from redis.client import Redis
-from celery import group
 
 from scrapy import log
 from scrapy.exceptions import DropItem
@@ -69,7 +68,7 @@ class EsPipeLine(object):
 
     def _add_if_to_geo_request(self, item, item_id):
         """
-        Adds item into geo request queue is legitime to be gathered
+        Adds item into geo request queue if legitime to be gathered
         """
         merchant = item.get("merchant")
         if not merchant:
@@ -89,7 +88,7 @@ class EsPipeLine(object):
                         .format(item_id))
             return False
 
-
+        #submit to celery to be processed!
         async_result = submit_geo_request.delay(self.settings, item_id)
         return True
 
@@ -149,6 +148,9 @@ class EsPipeLine(object):
         Checks if the items should be added to the retry list
         and if yes, it is added to the redis queue
         """
+        if not needs_retry(item):
+            return False
+
         retry_key = self.settings.get("REDIS_RETRY_PREFIX")%item.get("id")
         if self.redis_conn.exists(retry_key):
             #it seems it is already here we won't add it again
@@ -156,9 +158,6 @@ class EsPipeLine(object):
                        log.WARNING)
             return False
 
-
-        if not needs_retry(item):
-            return False
 
         self.retry_list.append({"id":item["id"],
                                 "untracked_url":item["untracked_url"]})
