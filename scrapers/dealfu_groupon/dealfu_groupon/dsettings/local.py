@@ -7,7 +7,7 @@ ES_PORT = "9200"
 
 #REDIS QUEUE PARAMETERS
 REDIS_HOST = "192.168.0.113"
-REDIS_RETRY_DELAY = 5*60 #seconds to wait after we start retrying
+REDIS_RETRY_DELAY = 2*60 #seconds to wait after we start retrying
 
 #GOOGLE GEOCODING SETTINGS
 GOOGLE_GEO_API_KEY = "AIzaSyADtvgG6dUm8JHXCX9fMRM96B68QSPI1n8"
