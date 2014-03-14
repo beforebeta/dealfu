@@ -1,13 +1,8 @@
 import json
-import time
-import datetime
-import calendar
-
-from elasticsearch.exceptions import TransportError
-import requests
 
 from dealfu_groupon.utils import get_redis, get_es, save_deal_item, extract_lang_lon_from_cached_result, \
     merge_dict_items
+
 from dealfu_groupon.background.celery import app
 
 
