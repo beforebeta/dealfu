@@ -54,6 +54,9 @@ class DealfuItem(Item):
     fine_print = Field()
     expires_at = Field()
 
+    #bool fields
+    enabled = Field()
+
     #category info
     category_name = Field()
     category_slug = Field()
