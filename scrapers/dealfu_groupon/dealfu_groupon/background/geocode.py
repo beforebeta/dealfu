@@ -119,12 +119,23 @@ def _merge_addr_lists(first, second):
     Merges two lists if "address" field is
     same take the second otherwise get the first
     """
+    #print "FIRST : ",first
+    #print "SECOND : ",second
+
     merged_list = []
     for f in first:
-        for s in second:
+        found=False
+        for si, s in enumerate(second):
             if f["address"] == s["address"]:
-                merged_list.append(s)
-            else:
-                merged_list.append(f)
+                found = si
+                break
+
+        if found == False:
+            merged_list.append(f)
+        else:
+            merged_list.append(second[found])
+
+
+    #print "MERGE_LIST ",merged_list
 
     return merged_list
