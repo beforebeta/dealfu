@@ -171,6 +171,13 @@ class GrouponSpider(Spider):
                                                        m.get("name"))
             else:
                 d["short_title"]= "{}% off!".format("%s"%int(d["discount_percentage"]*100))
+        else:
+            #is that right ?
+            if m.get("name"):
+                d["short_title"]= "coupon at {}".format(m.get("name"))
+            else:
+                d["short_title"]= d["title"]
+
 
         #description extraction WARN: XPATH MAGIC!!!
         desc_list = sel.xpath('//article[contains(@class, "pitch")]/div[contains(@class, "discussion")]/preceding-sibling::node()').extract()
