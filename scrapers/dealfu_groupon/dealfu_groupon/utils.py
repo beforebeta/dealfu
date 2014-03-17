@@ -240,11 +240,7 @@ def needs_retry(item):
         "addresses",
     )
 
-    optional = (
-        "price",
-        "discount_amount",
-        "discount_percentage",
-    )
+
 
     if item["online"]:
         mandatory = mandatory_online
@@ -261,15 +257,30 @@ def needs_retry(item):
             return True
 
         #now check if we have at least the address
-        if not merchant.get("addresses")[0].get("address"):
+        if not merchant.get("addresses")[0]:
             return True
+
+    if needs_price_retry(item):
+        return True
+
+    return False
+
+
+def needs_price_retry(item):
+    """
+    Checks if current item needa a price refetch
+    """
+    optional = (
+        "price",
+        "discount_amount",
+        "discount_percentage",
+    )
 
     #check the optional pieces here
     if not any([True if item.get(f) else False for f in optional]):
         return True
 
     return False
-
 
 
 def merge_dict_items(first, second):
