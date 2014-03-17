@@ -12,7 +12,8 @@ from scrapy.exceptions import DropItem
 
 from redis import Redis
 
-from dealfu_groupon.utils import get_es, merge_dict_items, needs_retry, clean_float_values, save_deal_item
+from dealfu_groupon.utils import get_es, merge_dict_items, needs_retry, clean_float_values, save_deal_item, \
+    needs_price_retry
 
 
 class RetryPipeLine(object):
@@ -117,13 +118,8 @@ class RetryPipeLine(object):
     def _needs_selenium_fetch(self, item):
         """
         Checks if supplied item needs to be fetched via selenium
-        WARN: bound to groupon !
         """
-        price_mandatory = ["price", "discount_amount"]
-        if any([False if item.get(f) else True for f in price_mandatory]):
-            return True
-
-        return False
+        return needs_price_retry(item)
 
 
     def decrease_retry_count(self, retry_dict):
