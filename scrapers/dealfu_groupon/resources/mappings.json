@@ -8,6 +8,12 @@
             "online":{
                 "type":"boolean"
             },
+            "enabled":{
+                "type":"boolean"
+            },
+            "deleted":{
+                "type":"boolean"
+            },
             "discount_amount":{
                 "type":"float"
             },
