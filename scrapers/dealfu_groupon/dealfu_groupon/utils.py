@@ -325,7 +325,7 @@ def from_obj_settings(obj):
     return d
 
 
-def save_deal_item(settings, item_id, item, es_conn=None):
+def save_deal_item(settings, item_id, item, es_conn=None, update=True):
     """
     Saves the changed item into ES
     """
@@ -334,10 +334,17 @@ def save_deal_item(settings, item_id, item, es_conn=None):
     else:
         es = es_conn
 
-    es.index(index=settings.get("ES_INDEX"),
-             doc_type=settings.get("ES_INDEX_TYPE_DEALS"),
-             body=item,
-             id=item_id)
+    if not update:
+        es.index(index=settings.get("ES_INDEX"),
+                 doc_type=settings.get("ES_INDEX_TYPE_DEALS"),
+                 body=item,
+                 id=item_id)
+    else:
+        #partial update that is better
+        es.update(index=settings.get("ES_INDEX"),
+                 doc_type=settings.get("ES_INDEX_TYPE_DEALS"),
+                 body={"doc":item},
+                 id=item_id)
 
     return True
 
