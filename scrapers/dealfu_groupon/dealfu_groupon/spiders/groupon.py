@@ -139,12 +139,16 @@ class GrouponSpider(Spider):
         """
         sel = Selector(response)
         d = DealfuItem()
+
+        #setup default values here probably need factory
+        d["enabled"] = False
+        #the url of the deal
+        d["untracked_url"] = response.url
+
+
         if self.doc_id:
             d["id"] = self.doc_id
 
-
-        #the url of the deal
-        d["untracked_url"] = response.url
 
         #check for online=True/False of deal
         tmp_online = self._extract_online_deal(response)
