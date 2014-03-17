@@ -130,7 +130,7 @@ def _merge_addr_lists(first, second):
                 found = si
                 break
 
-        if found == False:
+        if found is False:
             merged_list.append(f)
         else:
             merged_list.append(second[found])
