@@ -137,6 +137,10 @@ class DealItemSerializer(serializers.Serializer):
         return obj.get("_id")
 
 
+    def transform_url(self, obj, value):
+        return obj.get("_source").get("untracked_url")
+
+
 class EsDealField(EsFieldMixin, serializers.CharField):
     """
     We need to wrap every deal into a {deal:deal_dict}
