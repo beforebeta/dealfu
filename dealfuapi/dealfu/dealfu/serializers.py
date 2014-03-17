@@ -100,7 +100,7 @@ class EsMerchantField(EsFieldMixin, serializers.CharField):
         return DealMerchantSerializer(instance=native, context=self.context).data
 
 
-class DealSerializer(serializers.Serializer):
+class DealItemSerializer(serializers.Serializer):
 
 
     id = serializers.CharField()
@@ -136,6 +136,22 @@ class DealSerializer(serializers.Serializer):
         """
         return obj.get("_id")
 
+
+class EsDealField(EsFieldMixin, serializers.CharField):
+    """
+    We need to wrap every deal into a {deal:deal_dict}
+    we need that wrapper field here
+    """
+    def field_to_native(self, obj, field_name):
+        return DealItemSerializer(instance=obj).data
+
+
+
+class DealSerializer(serializers.Serializer):
+    """
+    A wrapper serializer
+    """
+    deal = EsDealField()
 
 
 class DealsCategoryItemSerializer(serializers.Serializer):
