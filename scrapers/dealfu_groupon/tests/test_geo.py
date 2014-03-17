@@ -182,6 +182,7 @@ class TestSubmitGeoRequest(RedisEsSetupMixin, TestCase):
         It is the success scenario
         """
         item = {
+            "online":False,
             "merchant": {
                   "url": "http://northdallasmedspa.com",
                   "name": "Medical Aesthetics of North Dallas",
@@ -222,6 +223,7 @@ class TestSubmitGeoRequest(RedisEsSetupMixin, TestCase):
         Tests the cache hit version
         """
         item = {
+            "online":False,
             "merchant": {
                   "url": "http://northdallasmedspa.com",
                   "name": "Medical Aesthetics of North Dallas",
@@ -298,6 +300,7 @@ class TestSubmitGeoRequest(RedisEsSetupMixin, TestCase):
                      }
                   ]
                },
+               "online":False,
                "untracked_url": "http://www.groupon.com/deals/medical-aesthetics-of-north-dallas",
         }
 
@@ -383,6 +386,7 @@ class TestProcessGeoRequest(RedisEsSetupMixin, TestCase):
                      }
                   ]
                },
+               "online":False,
                "untracked_url": "http://www.groupon.com/deals/medical-aesthetics-of-north-dallas",
         }
 

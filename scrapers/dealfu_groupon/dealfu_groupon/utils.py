@@ -266,6 +266,61 @@ def needs_retry(item):
     return False
 
 
+def some(fn, iterable):
+    """
+    An useful util
+    """
+    for i in iterable:
+        if fn(i):
+            return True
+
+    return False
+
+
+def get_in(d, *args):
+    if not d:
+        return None
+
+    if args:
+        return get_in(d.get(args[0]), *args[1:])
+    else:
+        return d
+
+
+def are_addresses_geo_encoded(item):
+    """
+    Checks an items addresses if they're geo encoded
+    """
+    addresses = get_in(item, "merchant", "addresses")
+    if not addresses:
+        return False
+
+    not_in = lambda x : True if not x.get("geo_location") else False
+    if some(not_in, addresses):
+        #if we have some blank fields they should not be enabled
+        return False
+
+    #we're good
+    return True
+
+
+def should_item_be_enabled(item):
+    """
+    Checks if item should be enabled or not
+    """
+    if needs_retry(item):
+        return False
+
+    #if it is offline check for geo encoding
+    if not item["online"] and not are_addresses_geo_encoded(item):
+        return False
+
+    #we're good
+    return True
+
+
+
+
 def needs_price_retry(item):
     """
     Checks if current item needa a price refetch
@@ -333,6 +388,11 @@ def save_deal_item(settings, item_id, item, es_conn=None, update=True):
         es = get_es(settings)
     else:
         es = es_conn
+
+    #at that stage we should check if we need to
+    #do some enabled checks
+    if not item.get("enabled") and should_item_be_enabled(item):
+        item["enabled"] = True
 
     if not update:
         es.index(index=settings.get("ES_INDEX"),

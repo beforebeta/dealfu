@@ -1,5 +1,4 @@
-from dealfu_groupon.utils import merge_dict_items, clean_float_values
-
+from dealfu_groupon.utils import merge_dict_items, clean_float_values, some, get_in
 
 
 def test_merge_items():
@@ -64,3 +63,50 @@ def test_clean_float_values():
 
     val = clean_float_values("From $55/nigh", "$")
     assert int(val) == 55
+
+
+def test_some():
+
+    t = [True, True, True]
+    tf = [False, True, False]
+    f = [False, False, False]
+
+    assert some(lambda x: x, t)
+    assert some(lambda x: x, tf)
+    assert some(lambda x: x, f) == False
+
+    a1 = [{"geo_location":{"lat":1212, "lon":1221}}]
+    a2 = [{},{}]
+    a3 = [{"geo_location":{"lat":1212, "lon":1221}},
+        {}]
+
+    not_in = lambda x : True if not x.get("geo_location") else False
+
+    assert some(not_in, a1) == False
+    assert some(not_in, a2)
+    assert some(not_in, a3)
+
+
+
+def test_get_in():
+
+    item = {
+        "merchant":{}
+    }
+
+    item2 = {
+        "merchant":{
+            "addresses":["a1", "a2"]
+        }
+    }
+
+    assert get_in(item, "non") is None
+    assert get_in(item, "merchant") is None
+    assert get_in(item, "merchant", "addresses") is None
+
+    #the item2 tests
+    assert get_in(item2, "merchant") == {
+        "addresses":["a1", "a2"]
+    }
+
+    assert get_in(item2, "merchant", "addresses") == ["a1", "a2"]
