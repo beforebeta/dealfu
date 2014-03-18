@@ -1,20 +1,19 @@
 """
 Test geolocation fns here
 """
+import json
+import datetime
+import calendar
+from unittest import TestCase
+
 from dealfu_groupon.utils import get_es, get_redis
 from elasticsearch.exceptions import TransportError
 from mock import MagicMock, patch
 from os.path import abspath, dirname
 import os
-import json
-import datetime
-import calendar
-
 from dealfu_groupon.background.geocode import is_valid_address, format_str_address, submit_geo_request, \
     extract_lang_lon_from_cached_result
-from dealfu_groupon.background.geopoll import cache_item, fetch_geo_addresses
-
-from unittest import TestCase
+from dealfu_groupon.cli.geopoll import cache_item, fetch_geo_addresses
 
 
 def test_is_valid_address():
@@ -355,7 +354,7 @@ def _should_first_in_second(first, second):
 
 class TestProcessGeoRequest(RedisEsSetupMixin, TestCase):
 
-    @patch("dealfu_groupon.background.geopoll.requests")
+    @patch("dealfu_groupon.cli.geopoll.requests")
     def test_fetch_geo_addresses_success(self, mock_requests):
         class GetJson(object):
 

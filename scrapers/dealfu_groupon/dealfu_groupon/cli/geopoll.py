@@ -2,23 +2,44 @@ import json
 import time
 import datetime
 import calendar
+import logging
+import sys
+
 
 from elasticsearch.exceptions import TransportError
 import requests
+import cli.app
 
 from dealfu_groupon.utils import get_redis, get_es, save_deal_item, extract_lang_lon_from_cached_result, \
     merge_dict_items
-from dealfu_groupon.background.celery import app
+from scrapy.utils.project import get_project_settings
 
 
-try:
-    #sometimes fails inside the tests
-    from celery.utils.log import get_task_logger
-    logger = get_task_logger(__name__)
-except ImportError:
-    import logging
-    logger = logging.getLogger(__name__)
+def get_default_logger(name):
+    root = logging.getLogger(name)
 
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    ch.setFormatter(formatter)
+    root.addHandler(ch)
+    root.setLevel(logging.DEBUG)
+
+    return root
+
+logger = get_default_logger("dealfu_groupon.cli.geopoll")
+
+
+
+@cli.app.CommandLineApp
+def process_geo_requests_cli(app):
+    """
+    The main point of the application !
+    """
+
+    #we need that one to be startd when system is up
+    settings = get_project_settings()
+    return process_geo_requests(settings)
 
 
 def compute_delay(settings, redis_conn):
@@ -36,7 +57,6 @@ def compute_delay(settings, redis_conn):
 
 
 
-@app.task
 def process_geo_requests(settings):
     """
     The main process that polls for new addresses to be gathered
@@ -61,7 +81,7 @@ def fetch_geo_addresses(settings, num_of_requests, delay):
 
     def _iter_addr_queue(redis_conn, key):
         while True:
-            print "INFINITE ======="
+            logger.info("=== WAITING FOR ADDRESS TO FETCH ===")
             yield redis_conn.blpop(key)[1]
 
     #compute the submitted requsts for the last 24 hrs
@@ -169,3 +189,7 @@ def cache_item(redis_conn, address_key, geo_response):
 
     redis_conn.set(address_key, json.dumps(geo_response))
     return True
+
+
+if __name__ == "__main__":
+    process_geo_requests_cli.run()
