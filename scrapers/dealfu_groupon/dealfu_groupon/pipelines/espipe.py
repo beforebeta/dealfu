@@ -39,6 +39,8 @@ class EsPipeLine(object):
         #res = json.loads(ser)
 
         if self._is_duplicate(item):
+            #maybe previous time we didn't complete whole retry thing
+            self._add_if_to_rety_list(item)
             #the item is already in database we don't need to add it again
             raise DropItem("The item :%s is already in db"%item.get("untracked_url"))
 
