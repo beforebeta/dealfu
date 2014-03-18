@@ -30,9 +30,28 @@
     - libffi-dev
     - libxml2-dev
     - libxslt1-dev
+
   tags:
     - scrapy
     - base
     - packages
     - provision
     - app
+
+
+
+- name: Scrapy | Packages | Install Phantomjs
+  command: "{{item}}"
+  with_items:
+    - wget https://phantomjs.googlecode.com/files/phantomjs-1.9.0-linux-x86_64.tar.bz2 chdir=/usr/local/share
+    - tar xjf phantomjs-1.9.0-linux-x86_64.tar.bz2 chdir=/usr/local/share
+    - ln -s /usr/local/share/phantomjs-1.9.0-linux-x86_64/bin/phantomjs /usr/local/share/phantomjs chdir=/usr/local/share
+    - ln -s /usr/local/share/phantomjs-1.9.0-linux-x86_64/bin/phantomjs /usr/local/bin/phantomjs chdir=/usr/local/share
+    - ln -s /usr/local/share/phantomjs-1.9.0-linux-x86_64/bin/phantomjs /usr/bin/phantomjs chdir=/usr/local/share
+
+  tags:
+    - scrapy
+    - packages
+    - provision
+    - app
+    - phantomjs
