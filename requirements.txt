@@ -7,3 +7,4 @@ mock==1.0.1
 selenium==2.40.0
 redis==2.9.1
 requests==2.2.1
+pyCLI==2.0.3
