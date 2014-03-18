@@ -195,6 +195,9 @@ class EsDealsQuery(EsHandleMixin, EsBaseQueryMixin):
         self._geo_enabled = False
         self._geo_params = {}
 
+        #first get only enabled:True
+        self.filter_by_enabled()
+
 
     def _get_and_filter(self):
         """
@@ -270,18 +273,32 @@ class EsDealsQuery(EsHandleMixin, EsBaseQueryMixin):
         return self
 
 
+    def filter_field_generic(self, fieldname, value):
+        """
+        A generic filter that works for any value which is
+        filterable !!!
+        """
+        boolq = self._get_filter_bool()["bool"]
+        if boolq.get("must"):
+            boolq["must"].append({"term":{fieldname:value}})
+        else:
+            boolq["must"] = [{"term":{fieldname:value}}]
+
+        return self
+
+
+    def filter_by_enabled(self):
+        """
+        Filters only enabled=True
+        """
+        return self.filter_field_generic("enabled", True)
+
 
     def filter_online(self, online):
         """
         Filters the online true false
         """
-        boolq = self._get_filter_bool()["bool"]
-        if boolq.get("must"):
-            boolq["must"].append({"term":{"online":online}})
-        else:
-            boolq["must"] = [{"term":{"online":online}}]
-
-        return self
+        return self.filter_field_generic("online", online)
 
 
     def filter_category_slugs(self, category_slugs):
