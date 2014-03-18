@@ -215,6 +215,10 @@ class DealsDetailView(APIView):
             raise Http404("not existing id")
 
         doc = es.get(pk)
+        if not doc["_source"].get("enabled"):
+            raise Http404("not existing document")
+
+        
         serializer = DealSerializer(instance=doc)
         return Response(serializer.data)
 
