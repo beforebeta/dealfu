@@ -1,13 +1,14 @@
 import datetime
 from copy import copy
-from dealfu_groupon.background.geocode import is_valid_address, submit_geo_request
+from dealfu_groupon.background.geocode import submit_geo_request
 
 from redis.client import Redis
 
 from scrapy import log
 from scrapy.exceptions import DropItem
 
-from dealfu_groupon.utils import check_spider_pipeline, get_es, needs_retry
+from dealfu_groupon.utils import check_spider_pipeline, get_es, needs_retry, needs_price_retry, needs_geo_fetch, \
+    is_item_in_geo_queue
 from dealfu_groupon.background.retry import retry_document
 
 
@@ -41,6 +42,8 @@ class EsPipeLine(object):
         if self._is_duplicate(item):
             #maybe previous time we didn't complete whole retry thing
             self._add_if_to_rety_list(item)
+            #maybe we missed the geo thing before
+            self._add_if_to_geo_request(item, item["id"])
             #the item is already in database we don't need to add it again
             raise DropItem("The item :%s is already in db"%item.get("untracked_url"))
 
@@ -72,22 +75,14 @@ class EsPipeLine(object):
         """
         Adds item into geo request queue if legitime to be gathered
         """
-        merchant = item.get("merchant")
-        if not merchant:
-            self.log("No merchant info, not submitted for geo request : {0}"
-                        .format(item_id))
+        if not needs_geo_fetch(item, item_id=item_id, logger=self.log):
             return False
 
-        addresses = merchant.get("addresses")
-        if not addresses:
-            self.log("No address info, not submitted for geo request : {0}"
-                        .format(item_id))
-            return False
-
-
-        if not any([a for a in addresses if is_valid_address(a)]):
-            self.log("No valid address info, not submitted for geo request : {0}"
-                        .format(item_id))
+        #check here if it is the geo list for fetching, if yes no need
+        #to resubmit it again
+        redis_key = self.settings.get("REDIS_GEO_POLL_LIST")
+        if is_item_in_geo_queue(self.redis_conn, redis_key, item_id):
+            self.log("Item already in geo queue no need for refetch", log.INFO)
             return False
 
         #submit to celery to be processed!
@@ -101,6 +96,10 @@ class EsPipeLine(object):
         Checks for an item if it is a duplicate in database
         Basically checks the untracked_url attribute
         and if there is such an item return True oterwise False
+
+        NOTE: if item exists it should add an "id" field to item
+        it is a mutation in read only, so not very beautiful!!!
+
         """
         query = {
             "query": {
@@ -116,6 +115,8 @@ class EsPipeLine(object):
 
         total = result["hits"]["total"]
         if total != 0:
+            item_id = result["hits"]["hits"][0]["_id"]
+            item["id"] = item_id
             return True
 
         return False
