@@ -1,3 +1,5 @@
+from dealfu_groupon.background.geocode import push_to_geo_queue
+from dealfu_groupon.utils import needs_geo_fetch, is_item_in_geo_queue, needs_address_geo_fetch, get_redis
 import requests
 import traceback
 
@@ -29,6 +31,7 @@ def retry_document(settings, redis_key, doc):
 
     pipe = RetryPipeLine(settings, redis_key, doc["id"], logger)
     retry_dict = pipe.get_retry_dict()
+    redis_conn = get_redis(settings)
 
     #first fetch the item from groupon
     resp = None
@@ -53,6 +56,14 @@ def retry_document(settings, redis_key, doc):
             # we are done we should
             # update the item here !
             pipe.update_item_finish(result, retry_dict)
+            #check if it need a geo encoding
+            #because sometimes the address info appears after retry
+            #process and we should refetch the address
+            add_if_to_geo_request(redis_conn,
+                                  settings,
+                                  result,
+                                  item["id"],
+                                  logger)
             return "FINISHED SUCCESS"
     except DropItem, ex:
         logger.error("Invalid item can not be retried : {}".format(traceback.format_exc()))
@@ -67,3 +78,24 @@ def retry_document(settings, redis_key, doc):
     return "FAILED NOWHERE !"
 
 
+def add_if_to_geo_request(redis_conn, settings,item, item_id, logger):
+    """
+    Adds item into geo request queue if legitime to be gathered
+    """
+    if not needs_geo_fetch(item, item_id=item_id, logger=logger):
+        return False
+
+    #check here if it is the geo list for fetching, if yes no need
+    #to resubmit it again
+    redis_key = settings.get("REDIS_GEO_POLL_LIST")
+    if is_item_in_geo_queue(redis_conn, item_id):
+        logger.info("Item already in geo queue no need for re-fetch")
+        return False
+
+    #submit to celery to be processed!
+    for address in item.get("addresses"):
+        if needs_address_geo_fetch(address):
+            push_to_geo_queue(redis_conn, redis_key, address, item_id)
+            logger.info("Item submitted to be geo-fetched : {0} on retry queue".format(address))
+
+    return True
