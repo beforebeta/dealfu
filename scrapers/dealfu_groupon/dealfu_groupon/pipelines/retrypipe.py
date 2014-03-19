@@ -212,5 +212,6 @@ def _get_price_info_selenium(url, logger=None):
         logger.error("Error when getting page with Phantom : {}".format(traceback.format_exc()))
         return d
 
-    #driver.close()
+    #exit the phantom process
+    driver.quit()
     return d
