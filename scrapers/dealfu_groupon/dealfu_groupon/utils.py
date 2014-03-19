@@ -320,6 +320,84 @@ def should_item_be_enabled(item):
 
 
 
+def is_valid_address(addr_dict):
+    """
+    Check if supplied address dictionary is
+    legitimate to be queried by google's api
+
+    Should have at least :
+    -address
+    -region_long
+    """
+    mandatory = ["address"]
+    for m in mandatory:
+        if not m in addr_dict:
+            return False
+
+    return True
+
+
+
+def needs_geo_fetch(item, item_id=None, logger=None):
+    """
+    Checks if supplied item should be submitted
+    for geolocation fetching
+    """
+    if not logger:
+        logger = logging.getLogger()
+
+    if not item_id:
+        item_id = item.get("id", "not_created")
+
+
+    merchant = item.get("merchant")
+    if not merchant:
+        logger("No merchant info, not submitted for geo request : {0}"
+                    .format(item_id))
+        return False
+
+    addresses = merchant.get("addresses")
+    if not addresses:
+        logger("No address info, not submitted for geo request : {0}"
+                    .format(item_id))
+        return False
+
+
+    if not any([a for a in addresses if is_valid_address(a)]):
+        logger("No valid address info, not submitted for geo request : {0}"
+                    .format(item_id))
+        return False
+
+    #check if all of the addresses are geo enabled
+    #if yes no need for checking
+    if all([a.get("geo_location") for a in addresses]):
+        return False
+
+    return True
+
+def needs_address_geo_fetch(address):
+    """
+    Checks if address item need geo fect
+    """
+    return False if address.get("geo_location") else False
+
+
+
+def is_item_in_geo_queue(redis_conn, redis_key ,item_id):
+    """
+    Checks if item_id is in queue of geo encoding fetch
+    It seems it is not very wise to traverse whole list
+    but it will work for now at least, later may replace
+    with ordered set if have some per bottleneck
+    """
+    results = redis_conn.lrange(redis_key, 0, -1)
+    for r in results:
+        if r.split(":")[0].strip() == item_id:
+            return True
+
+    return False
+
+
 
 def needs_price_retry(item):
     """
@@ -336,6 +414,7 @@ def needs_price_retry(item):
         return True
 
     return False
+
 
 
 def merge_dict_items(first, second):
