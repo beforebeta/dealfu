@@ -42,7 +42,7 @@ scrappers:
 
 #database:
 elasticsearch_version: 0.90.5
-elasticsearch_heap_size: 512m
+elasticsearch_heap_size: 256m
 elasticsearch_max_open_files: 65535
 elasticsearch_timezone: "America/New_York"
 elasticsearch_node_max_local_storage_nodes: 1
