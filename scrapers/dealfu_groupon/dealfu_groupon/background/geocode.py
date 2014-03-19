@@ -1,7 +1,7 @@
 import json
 
 from dealfu_groupon.utils import get_redis, get_es, save_deal_item, extract_lang_lon_from_cached_result, \
-    merge_dict_items
+    merge_dict_items, is_valid_address
 
 from dealfu_groupon.background.celery import app
 
@@ -15,23 +15,6 @@ except ImportError:
     logger = logging.getLogger(__name__)
 
 
-
-
-def is_valid_address(addr_dict):
-    """
-    Check if supplied address dictionary is
-    legitimate to be queried by google's api
-
-    Should have at least :
-    -address
-    -region_long
-    """
-    mandatory = ["address"]
-    for m in mandatory:
-        if not m in addr_dict:
-            return False
-
-    return True
 
 
 
@@ -98,8 +81,7 @@ def submit_geo_request(settings, item_id):
             #push it on queue  to be fetched later
             # we should encode the id here also when submitting
             # it to the part that processes the addresses
-            formated_address = ":".join([item_id, formated_address])
-            redis_conn.rpush(fetch_queue_key, formated_address)
+            push_to_geo_queue(redis_conn, fetch_queue_key, formated_address, item_id)
             logger.info("Item submitted to be fetched : {0}".format(formated_address))
 
     #set on item
@@ -111,6 +93,14 @@ def submit_geo_request(settings, item_id):
 
     return True
 
+
+def push_to_geo_queue(redis_conn, redis_key, address, item_id):
+    """
+    Pushes the specified address to geo queue
+    """
+    formated_address = ":".join([item_id, address])
+    redis_conn.rpush(redis_key, formated_address)
+    return True
 
 
 
