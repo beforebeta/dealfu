@@ -11,8 +11,7 @@ from copy import copy
 
 from redis import Redis
 
-from dealfu_groupon.items import MerchantItem, MerchantAddressItem
-
+from dealfu_groupon.items import MerchantItem, MerchantAddressItem, DealCategoryItem
 
 import elasticsearch
 
@@ -515,6 +514,30 @@ def extract_lang_lon_from_cached_result(result):
 
     return fdict
 
+
+def get_dealfu_category(name, parent=None):
+    """
+    Factory for dealfu category
+    """
+    dc = DealCategoryItem()
+    dc["name"] = name
+    dc["slug"] = slugify(unicode(name))
+    dc["parent_slug"] = slugify(unicode(parent)) if parent else None
+
+    return dc
+
+
+
+import unicodedata
+def slugify(value):
+    """
+    Converts to lowercase, removes non-word characters (alphanumerics and
+    underscores) and converts spaces to hyphens. Also strips leading and
+    trailing whitespace.
+    """
+    value = unicodedata.normalize('NFKD', value).encode('ascii', 'ignore').decode('ascii')
+    value = re.sub('[^\w\s-]', '', value).strip().lower()
+    return re.sub('[-\s]+', '-', value)
 
 
 
