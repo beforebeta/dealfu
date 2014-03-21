@@ -181,12 +181,14 @@ def _get_price_info_selenium(url, logger=None):
     d = {}
     d["commission"] = 0
 
+    driver = webdriver.PhantomJS()
     try:
-        driver = webdriver.PhantomJS()
         driver.get(url)
     except Exception,ex:
         logger.error("Error when getting page with Phantom : {}".format(traceback.format_exc()))
+        driver.quit()
         return d
+
 
     try:
         price_el = driver.find_element_by_xpath('//div[@id="purchase-cluster"]//div[@class="from-minimum"]')
@@ -199,7 +201,7 @@ def _get_price_info_selenium(url, logger=None):
         d["value"] = clean_float_values(val_txt, "$", ",")
 
         if not d["value"] or not d["price"]:
-                return d
+            return d
 
         d["discount_amount"] = d["value"] - d["price"]
 
@@ -209,9 +211,7 @@ def _get_price_info_selenium(url, logger=None):
 
 
     except NoSuchElementException, ex:
-        logger.error("Error when getting page with Phantom : {}".format(traceback.format_exc()))
-        return d
-
+        logger.error("Error when parisng page with Phantom : {}".format(traceback.format_exc()))
     finally:
         driver.quit()
 
