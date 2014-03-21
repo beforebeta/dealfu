@@ -1,5 +1,10 @@
-from dateutil.parser import parse
+from itertools import chain
 import re
+from copy import copy
+from functools import partial
+
+from dateutil.parser import parse
+
 
 from scrapy.http import Request
 from scrapy.spider import Spider
@@ -21,7 +26,7 @@ class LiveSocialSpider(Spider):
     ])
 
 
-    start_urls = ["https://www.livingsocial.com/more_deals"]
+    start_urls = ["https://www.livingsocial.com/categories"]
 
     def __init__(self, only_one_page=False, only_one_deal=False,
                  pipeline=None, one_url=None, num_of_deals=None,
@@ -44,22 +49,101 @@ class LiveSocialSpider(Spider):
         @param response:
         @return:
         """
-        yield Request(response.url,
-                      callback=self.parse_deal)
-
-        # if not self.only_one_deal:
-        #     #if wee need get whole list go from here
-        #     yield Request(response.url,
-        #                   callback=self._parse_pagination)
-        # else:
-        #     #if we need only one deal just go from here
-        #     yield Request(response.url,
-        #                   callback=self.parse_deal)
+        if not self.only_one_deal:
+             #if wee need get whole list go from here
+             yield Request(response.url,
+                           callback=self._parse_categories)
+        else:
+            #if we need only one deal just go from here
+            yield Request(response.url,
+                          callback=self.parse_deal)
 
 
 
+    def _parse_categories(self, response):
+        """
+        Get the category list and yield to categoried city pages
+        """
 
-    def parse_deal(self, response):
+        def _make_cb(catname):
+            return lambda response: self._parse_cities(response, catname)
+
+        sel = Selector(response)
+        main_categories_xpath = sel.xpath("//ul[contains(@class, 'regions')]/li[contains(@class, 'region')]")
+        if not main_categories_xpath:
+            return
+
+        for mc in main_categories_xpath:
+            main_name = get_first_from_xp(mc.xpath('.//h3/text()'))
+            sub_cats = mc.xpath("./ul[contains(@class, 'cities')]//a")
+            for sub_cat in sub_cats:
+                url = get_first_from_xp(sub_cat.xpath("./@href"))
+                text = get_first_from_xp(sub_cat.xpath("./text()"))
+
+                cb = _make_cb(text)
+                yield Request(url, callback=cb)
+
+
+
+    def _parse_cities(self, response, category=None):
+        """
+        Gets the list of cities and yield to pages with deals
+        """
+        def _make_cb(city, category):
+            return lambda resp: self._parse_deals_in_cities(resp, city, category=category)
+
+        sel = Selector(response)
+
+        ids_get = ["continent-north-america", "continent-south-america"]
+        for i in ids_get:
+            regions_xp = sel.xpath('//li[@id="continent-north-america"]//ul[contains(@class, "regions")]')
+            if not regions_xp:
+                continue
+
+            #country with states
+            states_xp = regions_xp.xpath("./li[contains(@class,'country-with-states')]//li[contains(@class, 'region')]")
+            for state_xp in states_xp:
+                state_name = get_first_from_xp(state_xp.xpath("./h3/text()"))
+                cities_xp = states_xp.xpath(".//li/a")
+                for city_xp in cities_xp:
+                    city_name = get_first_from_xp(city_xp.xpath("./text()"))
+                    url = get_first_from_xp(city_xp.xpath("./@href"))
+
+                    #print "%s:%s%s"%(state_name, city_name, url)
+                    yield Request(url, callback=_make_cb(city_name, category))
+
+            #country without states
+            cities_xp = regions_xp.xpath('./li[contains(@class, "region")]//ul[contains(@class, "cities")]//a')
+            for city_xp in cities_xp:
+                city_name = get_first_from_xp(city_xp.xpath("./text()"))
+                url = get_first_from_xp(city_xp.xpath("./@href"))
+
+                yield Request(url, callback=_make_cb(city_name, category))
+
+
+    def _parse_deals_in_cities(self, response, city, category=None):
+        """
+        Parses deals in cities list page
+        """
+        def _make_cb(catname):
+            return lambda response: self.parse_deal(response, catname)
+
+        sel = Selector(response)
+
+        #we have 2 xps feautured
+        featured_xp = sel.xpath('//ul[contains(@class, "featured-deals")]/li/a/@href')
+        #and popular ones
+        popular_xp = sel.xpath('//ul[contains(@class, "popular-deals")]/li/a/@href')
+
+        for ahref_xp in chain(featured_xp, popular_xp):
+            if not ahref_xp:
+                continue
+
+            url = ahref_xp.extract().strip()
+            yield Request(url, callback=_make_cb(category))
+
+
+    def parse_deal(self, response, category=None):
         """
         The detail page parsing is done at that stage
         :param response:
