@@ -1,7 +1,5 @@
 from itertools import chain
 import re
-from copy import copy
-from functools import partial
 
 from dateutil.parser import parse
 
@@ -11,7 +9,7 @@ from scrapy.spider import Spider
 from scrapy.selector import Selector
 
 from dealfu_groupon.items import DealfuItem, MerchantItem
-from dealfu_groupon.utils import get_first_from_xp, clean_float_values
+from dealfu_groupon.utils import get_first_from_xp, clean_float_values, strip_list_to_str
 from dealfu_groupon.pipelines import genespipe
 
 
@@ -26,17 +24,25 @@ class LiveSocialSpider(Spider):
     ])
 
 
+    main_url = "https://www.livingsocial.com"
+
     start_urls = ["https://www.livingsocial.com/categories"]
 
     def __init__(self, only_one_page=False, only_one_deal=False,
                  pipeline=None, one_url=None, num_of_deals=None,
-                 *args, **kw):
+                 start_point="category", *args, **kw):
         super(LiveSocialSpider, self).__init__(*args, **kw)
 
         self.only_one_page = only_one_page
         self.only_one_deal  = only_one_deal
         self.num_of_deals = int(num_of_deals) if num_of_deals else num_of_deals
         self.total_deals = 0
+        self.start_point = start_point
+
+        if start_point == "city": #we should change the start urls
+            self.start_urls = ["https://www.livingsocial.com/locations"]
+        elif start_point == "paging":
+            self.start_urls = ["https://www.livingsocial.com/more_deals?page=1"]
 
         if pipeline:
             self.pipeline = pipeline if isinstance(pipeline, list) or isinstance(pipeline, set) else set([pipeline])
@@ -49,14 +55,53 @@ class LiveSocialSpider(Spider):
         @param response:
         @return:
         """
-        if not self.only_one_deal:
-             #if wee need get whole list go from here
-             yield Request(response.url,
-                           callback=self._parse_categories)
-        else:
-            #if we need only one deal just go from here
+        #print "START ",self.start_point
+
+        if self.only_one_deal:
+            #if wee need get whole list go from here
             yield Request(response.url,
                           callback=self.parse_deal)
+
+        elif self.start_point == "category":
+            #if we need only one deal just go from here
+            yield Request(response.url,
+                           callback=self._parse_categories)
+
+        elif self.start_point == "city":
+            yield Request(response.url,
+                           callback=self._parse_cities)
+
+
+        elif self.start_point == "paging":
+            yield Request(response.url,
+                           callback=self._parse_pages)
+
+
+    def _parse_pages(self, response):
+        """
+        Traverses pages and goes to the next page if any
+        """
+        sel = Selector(response)
+        ahrefs = sel.xpath('//div[contains(@class, "lead")]/div/p[2]/a')
+        print ahrefs
+        if not ahrefs:
+            return
+
+        found_url = None
+        for a in ahrefs:
+            t = get_first_from_xp(a.xpath("./text()"))
+            if not t:
+                continue
+            if "next" in t.strip().lower():
+                url = get_first_from_xp(a.xpath("./@href"))
+                url = '/'.join(s.strip('/') for s in [self.main_url, url])
+                print "NEXT : ",url
+                found_url = url
+                break
+
+        if found_url:
+            yield Request(found_url,
+                          callback=self._parse_pages)
 
 
 
@@ -89,6 +134,7 @@ class LiveSocialSpider(Spider):
         """
         Gets the list of cities and yield to pages with deals
         """
+        print "IN CITIES : "
         def _make_cb(city, category):
             return lambda resp: self._parse_deals_in_cities(resp, city, category=category)
 
@@ -96,7 +142,9 @@ class LiveSocialSpider(Spider):
 
         ids_get = ["continent-north-america", "continent-south-america"]
         for i in ids_get:
-            regions_xp = sel.xpath('//li[@id="continent-north-america"]//ul[contains(@class, "regions")]')
+            regions_xp = sel.xpath('//li[@id="{}"]//ul[contains(@class, "regions")]'.format(i))
+            print regions_xp
+
             if not regions_xp:
                 continue
 
@@ -110,6 +158,9 @@ class LiveSocialSpider(Spider):
                     url = get_first_from_xp(city_xp.xpath("./@href"))
 
                     #print "%s:%s%s"%(state_name, city_name, url)
+                    if not url.startswith("http"):
+                        url = '/'.join(s.strip('/') for s in [self.main_url, url])
+
                     yield Request(url, callback=_make_cb(city_name, category))
 
             #country without states
@@ -117,6 +168,9 @@ class LiveSocialSpider(Spider):
             for city_xp in cities_xp:
                 city_name = get_first_from_xp(city_xp.xpath("./text()"))
                 url = get_first_from_xp(city_xp.xpath("./@href"))
+
+                if not url.startswith("http"):
+                    url = '/'.join(s.strip('/') for s in [self.main_url, url])
 
                 yield Request(url, callback=_make_cb(city_name, category))
 
@@ -191,6 +245,24 @@ class LiveSocialSpider(Spider):
 
         return d
 
+    def _extract_title_from_meta(self, response):
+        """
+        Gets the title from meta info
+        """
+        d = {}
+        sel = Selector(response)
+
+
+        meta_xp = sel.xpath('//meta[@property="og:title"]/@content')
+        meta_title = meta_xp.extract()[0]
+        if not meta_title:
+            return d
+
+        d["title"] = meta_title.strip()
+
+        return d
+
+
     def _get_short_title(self, merchant, item):
         #get the short title here
         d = item
@@ -227,9 +299,17 @@ class LiveSocialSpider(Spider):
         if price_xp:
             price = "".join([s.strip() for s in price_xp.extract() if s.strip])
             d["price"] = clean_float_values(price, "$")
+        else:
+            price = get_first_from_xp(sel.xpath('//div[contains(@class, "price")]//b/text()'))
+            if price:
+                d["price"] = clean_float_values(price, "$")
+
 
         #check for discount info
         discount_percentage = get_first_from_xp(sel.xpath('//ul[@id="stats_deal_list"]//li[1]/div/text()'))
+        if not discount_percentage:
+            discount_percentage = get_first_from_xp(sel.xpath('//div[contains(@class, "deal-info")]/div[contains(@class, "discount")]/span[contains(@class, "value")]/text()'))
+
         if discount_percentage:
             d["discount_percentage"] = clean_float_values(discount_percentage, "%")/100
 
@@ -246,6 +326,8 @@ class LiveSocialSpider(Spider):
 
         #check for sold quantity
         sold_items = get_first_from_xp(sel.xpath('//ul[@id="stats_deal_list"]//li[2]/div/text()'))
+        if not sold_items:
+            sold_items = get_first_from_xp(sel.xpath('//div[contains(@class, "deal-info")]/div[contains(@class, "purchased")]/span[contains(@class, "value")]/text()'))
         if sold_items:
             sold_str = sold_items.strip()
             res = re.search("(\d+)", sold_str.replace(",", ""))
@@ -262,6 +344,8 @@ class LiveSocialSpider(Spider):
         sel = Selector(response)
 
         merchant_name_xp = sel.xpath('//h1[@id="deal_merchant_display_name"]/text()')
+        if not merchant_name_xp:
+            merchant_name_xp = sel.xpath('//section[contains(@class, "event-venue")]/div[contains(@class, "venue-info")]/h4/text()')
         merchant_name = get_first_from_xp(merchant_name_xp)
         if not merchant_name:
             return  m
@@ -270,19 +354,36 @@ class LiveSocialSpider(Spider):
         #extract the address info here
         #'//*[contains(@class, "phone")]'
         address_info_xps = sel.xpath('//div[contains(@class, "location")]//div[contains(@class, "address-location-info")]')
-
         addresses = []
-        for address_xp in address_info_xps:
-            tmp_addr = {}
-            address = get_first_from_xp(address_xp.xpath('.//*[contains(@class, "street_1")]//text()'))
-            if address:
-                tmp_addr["address"] = address.strip()
 
-            phone = get_first_from_xp(address_xp.xpath('.//*[contains(@class, "phone")]//text()'))
-            if phone:
-                tmp_addr["phone_number"] = phone.replace("|", "").strip()
+        if address_info_xps:
+            for address_xp in address_info_xps:
+                tmp_addr = {}
+                address = get_first_from_xp(address_xp.xpath('.//*[contains(@class, "street_1")]//text()'))
+                if address:
+                    tmp_addr["address"] = address.strip()
 
-            if tmp_addr:
+                phone = get_first_from_xp(address_xp.xpath('.//*[contains(@class, "phone")]//text()'))
+                if phone:
+                    tmp_addr["phone_number"] = phone.replace("|", "").strip()
+
+                if tmp_addr:
+                    addresses.append(tmp_addr)
+        else:
+            xp_str = '//section[contains(@class, "event-venue")]/div[contains(@class, "venue-info")]/address//text()[not(ancestor::a)]'
+            addr_xp = sel.xpath(xp_str)
+            if addr_xp:
+                addr_text = strip_list_to_str(addr_xp.extract())
+                res = re.search("(.*)(\d{3}\-\d{3}\-\d{4})", addr_text)
+                tmp_addr = {}
+
+                if res:
+                    final_address = res.group(1).strip().strip("|")
+                    tmp_addr["address"] = final_address
+                    tmp_addr["phone_number"] = res.group(2).strip()
+                else:
+                    tmp_addr["address"] = addr_text.strip().strip("|")
+
                 addresses.append(tmp_addr)
 
         #assign the collected addresses
@@ -299,6 +400,13 @@ class LiveSocialSpider(Spider):
         sel = Selector(response)
         image_xp = get_first_from_xp(sel.xpath('//div[contains(@class, "deal-image")]/@style'))
         if not image_xp:
+            #it maybe some event type thing
+            meta_xp = sel.xpath('//meta[@property="og:image"]/@content')
+            meta_image = meta_xp.extract()[0]
+            if not meta_image:
+                return d
+
+            d["image_url"] = meta_image
             return d
 
         result = re.search("url\s*\(\'(http.*\.jpg)\'\)", image_xp.strip())
@@ -340,16 +448,28 @@ class LiveSocialSpider(Spider):
         sel = Selector(response)
 
         title_xp = sel.xpath('//*[@id="option_title_for_deal"]/text()')
-        d["title"] = get_first_from_xp(title_xp)
+        if title_xp:
+            d["title"] = get_first_from_xp(title_xp)
+        else:
+            d["title"] = self._extract_title_from_meta(response).get("title")
+
 
         #get the description
         description_xp = sel.xpath('//div[@id="view-details-full"]//p')
         if description_xp:
             description_xp_lst = description_xp.extract()
             d["description"] = "".join([desc.strip() for desc in description_xp_lst if desc.strip()])
+        else:
+            description_xp = sel.xpath('//div[contains(@class, "event-details")]//div[contains(@class, "deal-description")]')
+            description_xp_lst = description_xp.extract()
+            d["description"] = strip_list_to_str(description_xp_lst)
+
 
         #get the fine_print
         fine_print_xp = sel.xpath('//div[@id="fine-print-full"]//div[@class="fine-print"]//text()')
+        if not fine_print_xp:
+            fine_print_xp = sel.xpath('//div[contains(@class, "event-details")]//section[contains(@class, "fine-print")]//text()')
+
         if fine_print_xp:
             fine_print_lst = [f.extract().strip() for f in fine_print_xp]
             fine_print_lst = [f for f in fine_print_lst if f]
