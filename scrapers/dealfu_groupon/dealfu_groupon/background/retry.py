@@ -88,7 +88,7 @@ def add_if_to_geo_request(redis_conn, settings,item, item_id, logger):
     #check here if it is the geo list for fetching, if yes no need
     #to resubmit it again
     redis_key = settings.get("REDIS_GEO_POLL_LIST")
-    if is_item_in_geo_queue(redis_conn, item_id):
+    if is_item_in_geo_queue(redis_conn, redis_key, item_id):
         logger.info("Item already in geo queue no need for re-fetch")
         return False
 
