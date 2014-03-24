@@ -1,6 +1,5 @@
 import datetime
 import traceback
-import json
 import logging
 
 #for page that require JS
