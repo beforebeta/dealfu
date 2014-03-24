@@ -156,6 +156,14 @@ def iter_divisions(fpath):
 
 
 
+def strip_list_to_str(lst):
+    """
+    Strips all of the members and returns a str combined
+    """
+
+    stripped = [s.strip() for s in lst]
+    filtered = [s for s in stripped if s]
+    return "".join(filtered)
 
 
 def clean_float_values(sfloat, *clean_lst):
