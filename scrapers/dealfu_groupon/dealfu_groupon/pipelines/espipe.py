@@ -189,4 +189,3 @@ class EsPipeLine(object):
 
         #also we should enqueue it at that point
         return True
-        #return retry_document.s(self.settings, retry_key, item)
