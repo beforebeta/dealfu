@@ -9,8 +9,8 @@ from scrapy.spider import Spider
 from scrapy.selector import Selector
 
 from dealfu_groupon.items import DealfuItem, MerchantItem
-from dealfu_groupon.utils import get_first_from_xp, clean_float_values, strip_list_to_str
-from dealfu_groupon.pipelines import genespipe
+from dealfu_groupon.utils import get_first_from_xp, clean_float_values, strip_list_to_str, slugify, get_in
+from dealfu_groupon.pipelines import genespipe, emptypipe
 
 
 class LiveSocialSpider(Spider):
@@ -29,7 +29,7 @@ class LiveSocialSpider(Spider):
     start_urls = ["https://www.livingsocial.com/categories"]
 
     def __init__(self, only_one_page=False, only_one_deal=False,
-                 pipeline=None, one_url=None, num_of_deals=None,
+                 pipeline=None, num_of_deals=None,
                  start_point="category", *args, **kw):
         super(LiveSocialSpider, self).__init__(*args, **kw)
 
@@ -42,7 +42,8 @@ class LiveSocialSpider(Spider):
         if start_point == "city": #we should change the start urls
             self.start_urls = ["https://www.livingsocial.com/locations"]
         elif start_point == "paging":
-            self.start_urls = ["https://www.livingsocial.com/more_deals?page=1"]
+            self.start_urls = ["https://www.livingsocial.com/more_deals?page=1",
+                               "https://www.livingsocial.com/more_deals/online"]
 
         if pipeline:
             self.pipeline = pipeline if isinstance(pipeline, list) or isinstance(pipeline, set) else set([pipeline])
@@ -95,7 +96,7 @@ class LiveSocialSpider(Spider):
             if "next" in t.strip().lower():
                 url = get_first_from_xp(a.xpath("./@href"))
                 url = '/'.join(s.strip('/') for s in [self.main_url, url])
-                print "NEXT : ",url
+                #print "NEXT : ",url
                 found_url = url
                 break
 
@@ -103,6 +104,14 @@ class LiveSocialSpider(Spider):
             yield Request(found_url,
                           callback=self._parse_pages)
 
+
+        #look for links and yield them also
+        deals_a = sel.xpath('//div[contains(@class, "lead")]/p/a')
+        if deals_a:
+            for deal_xp in deals_a:
+                url = get_first_from_xp(deal_xp.xpath("./@href"))
+                yield Request(url,
+                              callback=self.parse_deal)
 
 
     def _parse_categories(self, response):
@@ -240,8 +249,16 @@ class LiveSocialSpider(Spider):
         tmp_d = self._extract_deal_image(response)
         d.update(tmp_d)
 
-        #TODO category info here should be added !
-        #TODO online/offline here
+        #category info here
+        if category:
+            d["category_slug"] = slugify(category)
+            d["category_name"] = category
+
+        #online/offline here
+        if not get_in(d, "merchant", "addresses"):
+            d["online"] = True
+        else:
+            d["online"] = False
 
         return d
 
@@ -254,6 +271,9 @@ class LiveSocialSpider(Spider):
 
 
         meta_xp = sel.xpath('//meta[@property="og:title"]/@content')
+        if not meta_xp:
+            return d
+
         meta_title = meta_xp.extract()[0]
         if not meta_title:
             return d
@@ -402,6 +422,9 @@ class LiveSocialSpider(Spider):
         if not image_xp:
             #it maybe some event type thing
             meta_xp = sel.xpath('//meta[@property="og:image"]/@content')
+            if not meta_xp:
+                return d
+
             meta_image = meta_xp.extract()[0]
             if not meta_image:
                 return d
