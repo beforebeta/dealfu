@@ -25,6 +25,7 @@ class MerchantItem(Item):
     """
     name = Field()
     url = Field()#company web site
+    facebook_url = Field() #the facebook page for the merchant
     addresses = Field() #list of MerchantAddressItems
 
 
