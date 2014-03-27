@@ -20,7 +20,8 @@ class LiveSocialSpider(Spider):
 
     #only work with those pipelines by default
     pipeline = set([
-        genespipe.BaseEsPipe
+        #genespipe.BaseEsPipe
+        emptypipe.EmptyPipe
     ])
 
 
@@ -84,7 +85,7 @@ class LiveSocialSpider(Spider):
         """
         sel = Selector(response)
         ahrefs = sel.xpath('//div[contains(@class, "lead")]/div/p[2]/a')
-        print ahrefs
+        ## print ahrefs
         if not ahrefs:
             return
 
@@ -143,7 +144,7 @@ class LiveSocialSpider(Spider):
         """
         Gets the list of cities and yield to pages with deals
         """
-        print "IN CITIES : "
+        #print "IN CITIES : "
         def _make_cb(city, category):
             return lambda resp: self._parse_deals_in_cities(resp, city, category=category)
 
@@ -152,7 +153,7 @@ class LiveSocialSpider(Spider):
         ids_get = ["continent-north-america", "continent-south-america"]
         for i in ids_get:
             regions_xp = sel.xpath('//li[@id="{}"]//ul[contains(@class, "regions")]'.format(i))
-            print regions_xp
+            #print regions_xp
 
             if not regions_xp:
                 continue
@@ -203,7 +204,7 @@ class LiveSocialSpider(Spider):
                 continue
 
             url = ahref_xp.extract().strip()
-            yield Request(url, callback=_make_cb(category))
+            yield Request(url, callback=_make_cb(category), meta={"cache_me":True})
 
 
     def parse_deal(self, response, category=None):
@@ -409,6 +410,32 @@ class LiveSocialSpider(Spider):
         #assign the collected addresses
         m["addresses"] = addresses
         return dict(m)
+
+    def _extract_merchant_urls(self, response):
+        """
+        Gets the merchant url and facebook url
+        """
+        d = {}
+
+        sel = Selector(response)
+
+        ahrefs = sel.xpath('//div[@id="view-details-full"]//a')
+        if not ahrefs:
+            ahrefs = sel.xpath('//div[@id="event-details"]//a')
+
+        if not ahrefs:
+            return d
+
+        for ahref in ahrefs:
+            url = get_first_from_xp(ahref.xpath("./@href"))
+            text = get_first_from_xp(ahref.xpath("./text()"))
+            if text and "website" in text.strip().lower():
+                d["url"] = url
+            elif text and "facebook" in text.strip().lower():
+                d["facebook_url"] = url
+
+        return d
+
 
 
     def _extract_deal_image(self, response):
