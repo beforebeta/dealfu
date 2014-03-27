@@ -415,7 +415,15 @@ class GrouponSpider(Spider):
         m["addresses"] = addresses
 
         #check for website
-        m["url"] = get_first_from_xp(sel.xpath('//div[@class="merchant-links"]//a/@href'))
+        ahrefs = sel.xpath('//div[@class="merchant-links"]//a')
+        if ahrefs:
+           for ahref in ahrefs:
+                url = get_first_from_xp(ahref.xpath("./@href"))
+                text = get_first_from_xp(ahref.xpath("./text()"))
+                if text and "website" in text.strip().lower():
+                    m["url"] = url
+                elif text and "facebook" in text.strip().lower():
+                    m["facebook_url"] = url
 
         return m
 
