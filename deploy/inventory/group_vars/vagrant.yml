@@ -41,6 +41,11 @@ scrappers:
   scrapy_bin: ${project.virtualenv}bin/scrapy
 
 
+es:
+  index: dealfu
+  index_backup_path: /tmp/dealfu_backup.json
+  index_addr: http://127.0.0.1:9200/${es.index}
+
 #database:
 elasticsearch_version: 0.90.5
 elasticsearch_heap_size: 512m
