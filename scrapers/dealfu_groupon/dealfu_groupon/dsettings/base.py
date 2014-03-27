@@ -1,5 +1,10 @@
 BOT_NAME = 'dealfu_groupon'
 
+HTTPCACHE_ENABLED = True
+HTTPCACHE_STORAGE = "scrapy.contrib.httpcache.FilesystemCacheStorage"
+HTTPCACHE_POLICY = "dealfu_groupon.middleware.cache.CacheDealPolicy"
+
+
 SPIDER_MODULES = ['dealfu_groupon.spiders']
 NEWSPIDER_MODULE = 'dealfu_groupon.spiders'
 
