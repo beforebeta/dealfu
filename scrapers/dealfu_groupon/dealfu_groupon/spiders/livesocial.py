@@ -380,9 +380,10 @@ class LiveSocialSpider(Spider):
         if address_info_xps:
             for address_xp in address_info_xps:
                 tmp_addr = {}
-                address = get_first_from_xp(address_xp.xpath('.//*[contains(@class, "street_1")]//text()'))
+                address = address_xp.xpath('.//*[contains(@class, "street_1")]//text()')
                 if address:
-                    tmp_addr["address"] = address.strip()
+                    address_txt = strip_list_to_str(address.extract())
+                    tmp_addr["address"] = address_txt
 
                 phone = get_first_from_xp(address_xp.xpath('.//*[contains(@class, "phone")]//text()'))
                 if phone:
