@@ -1,0 +1,59 @@
+---
+- name: Es |  Playbook  | Map Update | Setup Env
+  hosts: dbservers
+  sudo: yes
+  tasks:
+    - name: "add nodejs ppa"
+      apt_repository: repo="ppa:chris-lea/node.js" state=present
+
+    - name: "install nodejs"
+      apt: >
+        pkg=${item}
+        state=installed
+        update-cache=yes
+
+      with_items:
+        - python-software-properties
+        - python
+        - g++
+        - make
+        - nodejs
+
+    - name: "install esdump package"
+      npm: name=elasticdump global=yes
+
+
+- name: Es |  Playbook  | Map Update | Backup
+  hosts: dbservers
+  sudo: yes
+  tasks:
+    - name: "backup old index to json"
+      command: elasticdump --input={{es.index_addr}} --output={{es.index_backup_path}}
+
+  tags:
+    - backup
+    - upgrade
+
+
+- name: Es |  Playbook  | Map Update | Update Schema
+  hosts: dbservers
+  sudo: yes
+  tasks:
+    - include: tasks/esreset.yml
+
+  tags:
+    - reset
+    - upgrade
+
+
+- name: Es |  Playbook  | Map Update | Restore Schema
+  hosts: dbservers
+  sudo: yes
+  tasks:
+    - name: "restore json backup"
+      command: elasticdump --all=true --input={{es.index_backup_path}} --output={{es.index_addr}} --bulk=true
+
+
+  tags:
+    - restore
+    - upgrade

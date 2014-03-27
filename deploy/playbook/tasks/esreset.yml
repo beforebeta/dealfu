@@ -1,0 +1,11 @@
+---
+
+- name: "reset es indexes"
+  shell: source {{project.virtualenv}}bin/activate && python {{django.root}}manage.py  esmanage --cmd=reset --settings={{django.settings}}
+         executable=/bin/bash
+  ignore_errors: yes
+
+- name: "inits es indexes"
+  shell: source {{project.virtualenv}}bin/activate && python {{django.root}}manage.py  esmanage --cmd=init  --mapping={{scrappers.resources}}mappings.json --settings={{django.settings}}
+         executable=/bin/bash
+  ignore_errors: yes
