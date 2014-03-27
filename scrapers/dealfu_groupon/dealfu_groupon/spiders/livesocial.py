@@ -379,7 +379,9 @@ class LiveSocialSpider(Spider):
 
         if address_info_xps:
             for address_xp in address_info_xps:
-                tmp_addr = {}
+                tmp_addr = {"country":"United States",
+                            "country_code":"US"}
+
                 address = address_xp.xpath('.//*[contains(@class, "street_1")]//text()')
                 if address:
                     address_txt = strip_list_to_str(address.extract())
@@ -397,7 +399,8 @@ class LiveSocialSpider(Spider):
             if addr_xp:
                 addr_text = strip_list_to_str(addr_xp.extract())
                 res = re.search("(.*)(\d{3}\-\d{3}\-\d{4})", addr_text)
-                tmp_addr = {}
+                tmp_addr = {"country":"United States",
+                            "country_code":"US"}
 
                 if res:
                     final_address = res.group(1).strip().strip("|")
