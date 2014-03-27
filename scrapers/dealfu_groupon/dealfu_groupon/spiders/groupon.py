@@ -93,7 +93,7 @@ class GrouponSpider(Spider):
             if d.startswith("//"):
                 d = d.replace("//", "http://")
 
-            r = Request(d, callback=self.parse_deal)
+            r = Request(d, callback=self.parse_deal, meta={"cache_me":True})
             self.total_deals += 1
 
             yield r
