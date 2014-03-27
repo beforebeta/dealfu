@@ -22,6 +22,10 @@
     - name: "install esdump package"
       npm: name=elasticdump global=yes
 
+  tags:
+    - packages
+    - upgrade
+
 
 - name: Es |  Playbook  | Map Update | Backup
   hosts: dbservers
