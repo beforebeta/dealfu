@@ -20,8 +20,8 @@ class LiveSocialSpider(Spider):
 
     #only work with those pipelines by default
     pipeline = set([
-        #genespipe.BaseEsPipe
-        emptypipe.EmptyPipe
+        genespipe.BaseEsPipe
+        #emptypipe.EmptyPipe
     ])
 
 
@@ -413,6 +413,12 @@ class LiveSocialSpider(Spider):
 
         #assign the collected addresses
         m["addresses"] = addresses
+
+        tmp_dict = self._extract_merchant_urls(response)
+        if tmp_dict:
+            m.update(tmp_dict)
+        
+
         return dict(m)
 
     def _extract_merchant_urls(self, response):
