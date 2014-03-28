@@ -85,7 +85,8 @@ class RetryPipeLine(object):
         else:
             #decrase the retry count so other part can know if it failed
             if self._needs_selenium_fetch(merged_item):
-                price_info = _get_price_info_selenium(item["untracked_url"])
+                price_info = _get_price_info_selenium(item["untracked_url"],
+                                                      settings=self.settings)
                 if price_info:
                     merged_item = merge_dict_items(merged_item, price_info)
                     if not needs_retry(merged_item):
@@ -168,7 +169,7 @@ class RetryPipeLine(object):
 
 
 
-def _get_price_info_selenium(url, logger=None):
+def _get_price_info_selenium(url, settings=None, logger=None):
     """
     CAUTION that will block the whole process !!!
     But it is ok since that is a background process!
@@ -180,7 +181,9 @@ def _get_price_info_selenium(url, logger=None):
     d = {}
     d["commission"] = 0
 
-    driver = webdriver.PhantomJS()
+    phantom_port = settings.get("PHANTMOJS_PORT", 10002)if settings else 10002
+
+    driver = webdriver.PhantomJS(port=phantom_port)
     try:
         driver.get(url)
     except Exception,ex:
