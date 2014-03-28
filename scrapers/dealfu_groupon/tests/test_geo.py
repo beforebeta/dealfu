@@ -13,7 +13,7 @@ from os.path import abspath, dirname
 import os
 from dealfu_groupon.background.geocode import format_str_address, submit_geo_request, \
     extract_lang_lon_from_cached_result
-from dealfu_groupon.cli.geopoll import cache_item, fetch_geo_addresses
+from dealfu_groupon.cli.geopoll import cache_item, fetch_geo_addresses, GoogleGeoApi
 
 
 def test_is_valid_address():
@@ -86,7 +86,7 @@ GOOGLE_GEO_REQUESTS_PERIOD = 24*60*60
 TEST_SETTINGS_OBJECT = dict(
     SCRAPY_ROOT = dirname(dirname(abspath(__file__))),
     #ES_SETTINGS
-    ES_SERVER = "192.168.0.113",
+    ES_SERVER = "127.0.0.1",
     ES_PORT = "9200",
     #ES index information
     ES_INDEX = "test_dealfu",
@@ -96,7 +96,7 @@ TEST_SETTINGS_OBJECT = dict(
     #REDIS QUEUE PARAMETERS
     REDIS_DEFAULT_DB = 1,
     REDIS_DEFAULT_QUEUE = "default_test",
-    REDIS_HOST = "192.168.0.113",
+    REDIS_HOST = "127.0.0.1",
     REDIS_PORT = 6379,
     REDIS_RETRY_PREFIX = "scrapy:retry:%s",
     REDIS_RETRY_COUNT = 4,
@@ -417,7 +417,8 @@ class TestProcessGeoRequest(RedisEsSetupMixin, TestCase):
         fetch_queue_key = self.settings.get("REDIS_GEO_POLL_LIST")
         self.redis_conn.rpush(fetch_queue_key, formatted_addr_id)
 
-        assert  fetch_geo_addresses(self.settings, 1, 0.1)
+        geoapi = GoogleGeoApi(self.settings)
+        assert  fetch_geo_addresses(self.settings, 1, geoapi)
 
         #now check the cache we should have one value there
         cache_key = self.settings.get("REDIS_GEO_CACHE_KEY")%formatted_addr
