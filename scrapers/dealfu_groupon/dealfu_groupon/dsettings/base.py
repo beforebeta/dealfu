@@ -28,6 +28,9 @@ ES_INDEX = "dealfu"
 ES_INDEX_TYPE_DEALS = "deal"
 ES_INDEX_TYPE_CATEGORY = "category"
 
+#when using phantomjs
+PHANTMOJS_PORT = 10001
+
 #ES_SETTINGS
 ES_SERVER = "127.0.0.1"
 ES_PORT = "9200"
