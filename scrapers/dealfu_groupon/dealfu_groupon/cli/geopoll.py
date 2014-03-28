@@ -39,42 +39,30 @@ def process_geo_requests_cli(app):
 
     #we need that one to be startd when system is up
     settings = get_project_settings()
-    return process_geo_requests(settings)
+    return process_geo_requests(settings, app.params.geoapi)
+
+process_geo_requests_cli.add_param("geoapi", help="geoapi to use [google, datascience]", default="google", type=str)
 
 
-def compute_delay(settings, redis_conn):
-    """
-    Computes the delay that we should apply between 2 requests
-    Basicly it sends back the delay (in secs) and the number of items
-    that should be applied
-
-    @returns back a tuple of :
-        (delay, num_of_requests)
-
-
-    """
-    return settings.get("GOOGLE_GEO_DEFAULT_DELAY"), settings.get("GOOGLE_GEO_REQUESTS_PER_DAY")
-
-
-
-def process_geo_requests(settings):
+def process_geo_requests(settings, geoapi):
     """
     The main process that polls for new addresses to be gathered
     """
-    delay, num_of_reqs = compute_delay(settings, None)
+    geo_api = get_current_geo_api(settings, geoapi)
+    delay, num_of_reqs = geo_api.compute_delay()
     logger.info("Starting the geo_request_processor with delay of : {0} for {1} reqs"
                 .format(delay, num_of_reqs))
 
     while True:
-        fetch_geo_addresses(settings, num_of_reqs, delay)
-        delay, num_of_reqs = compute_delay(settings, None)
+        fetch_geo_addresses(settings, num_of_reqs, geoapi)
+        delay, num_of_reqs = geo_api.compute_delay()
         logger.info("Setting the geo_request_processor with delay of : {0} for {1} reqs"
                 .format(delay, num_of_reqs))
 
 
 
 
-def fetch_geo_addresses(settings, num_of_requests, delay):
+def fetch_geo_addresses(settings, num_of_requests, geoapi):
     """
     That task will check for submitted geolocation
     """
@@ -98,14 +86,7 @@ def fetch_geo_addresses(settings, num_of_requests, delay):
         item_id = formatted_list[0] #will be used later
         address = ",".join(formatted_list[1:])
 
-        payload = {"address":address,
-                  "sensor":"false",
-                  "key":settings.get("GOOGLE_GEO_API_KEY")}
-
         now = datetime.datetime.utcnow()
-        r = requests.get(settings.get("GOOGLE_GEO_API_ENDPOINT"),
-                         params=payload)
-
         #add an entry to the redis so we don't flood the api endpoint
         time_entry = calendar.timegm(now.utctimetuple())
         #print "TIME_ENTRY : ",float(time_entry)
@@ -117,14 +98,7 @@ def fetch_geo_addresses(settings, num_of_requests, delay):
 
         logger.info("A new request log entry added : {0}".format(formatted_addr+":"+str(time_entry)))
 
-
-        result = r.json()
-        if result["status"] != "OK":
-            #log something here and start waiting
-            time.sleep(delay * 5)
-            #TODO! we should retry that entry here again
-            continue
-
+        result = geoapi.fetch_geo(address)
 
         #submit the item to the cache
         cache_addr = ":".join(formatted_list[1:])
@@ -138,7 +112,7 @@ def fetch_geo_addresses(settings, num_of_requests, delay):
             logger.info("Item : {0} updated with geo info ".format(item_id))
 
         #wait for the desired time
-        time.sleep(delay)
+        time.sleep(geoapi.delay)
 
         processed_requests += 1
         if processed_requests == num_of_requests:
@@ -189,6 +163,102 @@ def cache_item(redis_conn, address_key, geo_response):
 
     redis_conn.set(address_key, json.dumps(geo_response))
     return True
+
+
+class GoogleGeoApi(object):
+    """
+    Converts the address data to geo data
+    from google api
+    """
+
+    def __init__(self, settings):
+
+        self.settings = settings
+        self.api_key = settings["GOOGLE_GEO_API_KEY"]
+        self.api_endpoint = settings.get("GOOGLE_GEO_API_ENDPOINT")
+        self.delay = self.compute_delay()[0]
+
+
+    def get_payload(self, address):
+
+        return {"address":address,
+                  "sensor":"false",
+                  "key":self.api_key
+                }
+
+
+    def compute_delay(self):
+        """
+        Computes the delay between 2 requests
+        """
+        return self.settings.get("GOOGLE_GEO_DEFAULT_DELAY"), self.settings.get("GOOGLE_GEO_REQUESTS_PER_DAY")
+
+
+    def fetch_geo(self, address):
+
+        retry_count = 5
+
+        while retry_count > 0:
+            payload = self.get_payload(address)
+
+            r = requests.get(self.api_endpoint,
+                             params=payload)
+
+            result = r.json()
+            if result["status"] != "OK":
+                #log something here and start waiting
+                time.sleep(self.delay * 5)
+                retry_count -= 1
+                continue
+            else:
+                #we're done exit
+                return result
+
+        raise GeoApiError("Retry count exceeded!")
+
+
+class DataScienceToolkitGeoApi(GoogleGeoApi):
+
+    def __init__(self, settings):
+
+        self.settings = settings
+        self.api_endpoint = settings.get("DATASCIENCE_GEO_API_ENDPOINT")
+        self.delay = self.compute_delay()[0]
+
+
+    def get_payload(self, address):
+        """
+        Overriden payload
+        """
+
+        return {
+            "address":address,
+            "sensor":"false"
+        }
+
+
+    def compute_delay(self):
+        """
+        Computes the delay between 2 requests
+        """
+        return 1, 1000000
+
+
+class GeoApiError(Exception):
+    pass
+
+
+def get_current_geo_api(settings, geo_api):
+    """
+    A factory to choose the right geo api class
+    """
+    if geo_api == "google":
+        return GoogleGeoApi(settings)
+    elif geo_api == "datascience":
+        return DataScienceToolkitGeoApi(settings)
+    else:
+        raise GeoApiError("No suitable factory for : {}".format(geo_api))
+
 
 
 if __name__ == "__main__":
