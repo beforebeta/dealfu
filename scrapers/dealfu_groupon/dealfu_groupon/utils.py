@@ -446,8 +446,11 @@ def merge_dict_items(first, second):
             #we are not interested in empty values
             continue
         elif isinstance(v, dict):
-            tmp = merge_dict_items(d3.get(k, {}), second[k])
-            d3[k] = tmp
+            if not d3.get(k) is None:
+                tmp = merge_dict_items(d3[k], second[k])
+                d3[k] = tmp
+            else:
+                d3[k] = second[k]
         else:
             d3[k] = v
 
