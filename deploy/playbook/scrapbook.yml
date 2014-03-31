@@ -39,8 +39,19 @@
 
     - role: eggsby.supervise
       supervisor_virtualenv: "{{project.root}}venv"
-      name: cli_geopoll
-      command: "{{project.interpreter}} dealfu_groupon/cli/geopoll.py"
+      name: cli_geopoll_google
+      command: "{{project.interpreter}} dealfu_groupon/cli/geopoll.py google"
+      directory: "{{scrappers.root}}"
+      app_home: '{{project.root}}apps'
+      user: "{{project.user}}"
+      app_env:
+        PYTHONPATH: "{{scrappers.root}}"
+        SCRAPY_SETTINGS_MODULE: "{{scrappers.settings}}"
+
+    - role: eggsby.supervise
+      supervisor_virtualenv: "{{project.root}}venv"
+      name: cli_geopoll_datascience
+      command: "{{project.interpreter}} dealfu_groupon/cli/geopoll.py datascience"
       directory: "{{scrappers.root}}"
       app_home: '{{project.root}}apps'
       user: "{{project.user}}"
