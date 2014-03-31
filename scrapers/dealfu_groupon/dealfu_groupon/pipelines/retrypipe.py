@@ -90,7 +90,9 @@ class RetryPipeLine(object):
             if self._needs_selenium_fetch(merged_item):
                 self.logger.info("Starting selenium for url : {}".format(item["untracked_url"]))
                 price_info = _get_price_info_selenium(item["untracked_url"],
-                                                      settings=self.settings)
+                                                      settings=self.settings,
+                                                      logger=self.logger)
+                
                 self.logger.info("Gathered selenium result : {}".format(price_info))
                 if price_info:
                     merged_item = merge_dict_items(merged_item, price_info)
