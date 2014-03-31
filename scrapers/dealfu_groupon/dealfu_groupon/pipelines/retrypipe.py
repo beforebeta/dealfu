@@ -181,7 +181,7 @@ def _get_price_info_selenium(url, settings=None, logger=None):
     d = {}
     d["commission"] = 0
 
-    phantom_port = settings.get("PHANTMOJS_PORT", 10002)if settings else 10002
+    phantom_port = settings.get("PHANTMOJS_PORT", 10002) if settings else 10002
 
     driver = webdriver.PhantomJS(port=phantom_port)
     try:

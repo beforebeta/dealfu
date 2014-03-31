@@ -93,7 +93,7 @@ def add_if_to_geo_request(redis_conn, settings,item, item_id, logger):
         return False
 
     #submit to celery to be processed!
-    for address in item.get("addresses"):
+    for address in item.get("addresses", []):
         if needs_address_geo_fetch(address):
             push_to_geo_queue(redis_conn, redis_key, address, item_id)
             logger.info("Item submitted to be geo-fetched : {0} on retry queue".format(address))
