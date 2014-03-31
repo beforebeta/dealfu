@@ -28,8 +28,8 @@ class GrouponEsPipeLine(BaseEsPipe):
         """
         Some action to be taken on duplication
         """
-        self._add_if_to_geo_request(item, item_id)
-
+        #print "DUPLICAAAAAAAAATEEEEEEEEEEEEEEEEEEEEEEEEEE"
+        self._add_if_to_rety_list(item)
         return True
 
 
