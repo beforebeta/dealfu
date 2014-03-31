@@ -78,17 +78,22 @@ class RetryPipeLine(object):
 
         result = self.get_item() #that is a fresh copy of item
         merged_item = merge_dict_items(result, item) #merge them
+        self.logger.info("Items merged , check if needs retry !")
+
 
         if not needs_retry(merged_item):
             #mark item as finished so the other end can finish that
+            self.logger.info("Item does not need retry , {}".format(item["id"]))
             return merged_item
         else:
             #decrase the retry count so other part can know if it failed
             if self._needs_selenium_fetch(merged_item):
+                self.logger.info("Starting selenium for url : {}".format(item["untracked_url"]))
                 price_info = _get_price_info_selenium(item["untracked_url"],
                                                       settings=self.settings)
                 if price_info:
                     merged_item = merge_dict_items(merged_item, price_info)
+                    self.logger.info("Price info merged , check if needs a retry again")
                     if not needs_retry(merged_item):
                         return merged_item
 
