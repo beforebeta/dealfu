@@ -44,17 +44,17 @@ def process_geo_requests_cli(app):
 process_geo_requests_cli.add_param("geoapi", help="geoapi to use [google, datascience]", default="google", type=str)
 
 
-def process_geo_requests(settings, geoapi):
+def process_geo_requests(settings, geoapi_str):
     """
     The main process that polls for new addresses to be gathered
     """
-    geo_api = get_current_geo_api(settings, geoapi)
+    geo_api = get_current_geo_api(settings, geoapi_str)
     delay, num_of_reqs = geo_api.compute_delay()
     logger.info("Starting the geo_request_processor with delay of : {0} for {1} reqs"
                 .format(delay, num_of_reqs))
 
     while True:
-        fetch_geo_addresses(settings, num_of_reqs, geoapi)
+        fetch_geo_addresses(settings, num_of_reqs, geo_api)
         delay, num_of_reqs = geo_api.compute_delay()
         logger.info("Setting the geo_request_processor with delay of : {0} for {1} reqs"
                 .format(delay, num_of_reqs))
