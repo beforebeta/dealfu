@@ -12,7 +12,7 @@ from dealfu_groupon.items import DealfuItem, MerchantItem
 from dealfu_groupon.utils import get_fresh_merchant_address, get_short_region_name, get_first_from_xp, extract_query_params, replace_query_param, \
     iter_divisions, clean_float_values
 
-from dealfu_groupon.pipelines import espipe
+from dealfu_groupon.pipelines import grouponespipe
 
 
 class GrouponSpider(Spider):
@@ -22,7 +22,7 @@ class GrouponSpider(Spider):
 
     #only work with those pipelines by default
     pipeline = set([
-        espipe.EsPipeLine
+        grouponespipe.GrouponEsPipeLine
     ])
 
 
