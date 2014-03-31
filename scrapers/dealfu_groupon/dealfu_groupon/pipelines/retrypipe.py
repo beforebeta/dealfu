@@ -190,6 +190,7 @@ def _get_price_info_selenium(url, settings=None, logger=None):
     phantom_port = settings.get("PHANTMOJS_PORT", 10002) if settings else 10002
 
     driver = webdriver.PhantomJS(port=phantom_port)
+    logger.info("Fetching url with phantom : {}".format(url))
     try:
         driver.get(url)
     except Exception,ex:
@@ -198,6 +199,7 @@ def _get_price_info_selenium(url, settings=None, logger=None):
         return d
 
 
+    logger.info("Looking up for the price info in page : {}".format(url))
     try:
         price_el = driver.find_element_by_xpath('//div[@id="purchase-cluster"]//div[@class="from-minimum"]')
         val_el = driver.find_element_by_xpath('//div[@id="purchase-cluster"]//div[@class="market-minimum"]')
@@ -222,5 +224,7 @@ def _get_price_info_selenium(url, settings=None, logger=None):
         logger.error("Error when parisng page with Phantom : {}".format(traceback.format_exc()))
     finally:
         driver.quit()
+
+    logger.info("Page fetching/parsing with Phantom is done !!! {}".format(url))
 
     return d
