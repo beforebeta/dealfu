@@ -10,7 +10,7 @@ from scrapy.selector import Selector
 
 from dealfu_groupon.items import DealfuItem, MerchantItem
 from dealfu_groupon.utils import get_first_from_xp, clean_float_values, strip_list_to_str, slugify, get_in
-from dealfu_groupon.pipelines import genespipe, emptypipe
+from dealfu_groupon.pipelines import espipe
 
 
 class LiveSocialSpider(Spider):
@@ -20,8 +20,7 @@ class LiveSocialSpider(Spider):
 
     #only work with those pipelines by default
     pipeline = set([
-        genespipe.BaseEsPipe
-        #emptypipe.EmptyPipe
+        espipe.EsPipeLine
     ])
 
 
