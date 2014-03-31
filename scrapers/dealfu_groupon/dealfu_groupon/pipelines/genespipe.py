@@ -104,6 +104,7 @@ class BaseEsPipe(object):
         """
         Adds item into geo request queue if legitime to be gathered
         """
+        #print "SUBMIT GEO REQUEST : ",item_id
         if not needs_geo_fetch(item, item_id=item_id, logger=self.log):
             return False
 
@@ -116,6 +117,7 @@ class BaseEsPipe(object):
 
         #submit to celery to be processed!
         async_result = submit_geo_request.delay(self.settings, item_id)
+        print "SUBMITED GEO REQUEST : ",item_id
         return True
 
 
