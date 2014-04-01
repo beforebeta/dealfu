@@ -6,6 +6,7 @@ import urllib
 import json
 import re
 import functools
+import sys
 import logging
 from copy import copy
 
@@ -578,3 +579,16 @@ def check_spider_pipeline(process_item_method):
             return item
 
     return wrapper
+
+
+def get_default_logger(name):
+    root = logging.getLogger(name)
+
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    ch.setFormatter(formatter)
+    root.addHandler(ch)
+    root.setLevel(logging.DEBUG)
+
+    return root

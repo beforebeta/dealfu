@@ -11,21 +11,10 @@ import requests
 import cli.app
 
 from dealfu_groupon.utils import get_redis, get_es, save_deal_item, extract_lang_lon_from_cached_result, \
-    merge_dict_items
+    merge_dict_items, get_default_logger
 from scrapy.utils.project import get_project_settings
 
 
-def get_default_logger(name):
-    root = logging.getLogger(name)
-
-    ch = logging.StreamHandler(sys.stdout)
-    ch.setLevel(logging.DEBUG)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    ch.setFormatter(formatter)
-    root.addHandler(ch)
-    root.setLevel(logging.DEBUG)
-
-    return root
 
 logger = get_default_logger("dealfu_groupon.cli.geopoll")
 
@@ -64,7 +53,7 @@ def process_geo_requests(settings, geoapi_str):
 
 def fetch_geo_addresses(settings, num_of_requests, geoapi):
     """
-    That task will check for submitted geolocation
+    That task will check for submitted geo location
     """
 
     def _iter_addr_queue(redis_conn, key):
