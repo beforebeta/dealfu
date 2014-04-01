@@ -59,6 +59,21 @@
         PYTHONPATH: "{{scrappers.root}}"
         SCRAPY_SETTINGS_MODULE: "{{scrappers.settings}}"
 
+
+    - role: eggsby.supervise
+      supervisor_virtualenv: "{{project.root}}venv"
+      name: cli_deal_enabler
+      command: "{{project.interpreter}} dealfu_groupon/cli/deal_validator.py"
+      directory: "{{scrappers.root}}"
+      app_home: '{{project.root}}apps'
+      user: "{{project.user}}"
+      autostart: false
+      app_env:
+        PYTHONPATH: "{{scrappers.root}}"
+        SCRAPY_SETTINGS_MODULE: "{{scrappers.settings}}"
+
+
+
     - role: eggsby.supervise
       supervisor_virtualenv: "{{project.root}}venv"
       name: celery_general
