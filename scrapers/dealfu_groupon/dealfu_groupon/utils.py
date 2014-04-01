@@ -230,18 +230,14 @@ def needs_retry(item):
     - discount_percentage
     """
 
-    mandatory_offline = ("category_name",
-                "category_slug",
-                "description",
-                "title",
-                "short_title",
-                "merchant",)
+    mandatory_offline = ("description",
+                        "title",
+                        "short_title",
+                        "merchant",)
 
-    mandatory_online = ("category_name",
-                "category_slug",
-                "description",
-                "title",
-                "short_title",)
+    mandatory_online = ("description",
+                        "title",
+                        "short_title",)
 
     merchant_mandatory = (
         "name",
