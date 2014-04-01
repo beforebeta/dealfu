@@ -8,7 +8,8 @@ from redis.client import Redis
 from scrapy import log
 from scrapy.exceptions import DropItem
 
-from dealfu_groupon.utils import check_spider_pipeline, get_es, needs_geo_fetch, is_item_in_geo_queue
+from dealfu_groupon.utils import check_spider_pipeline, get_es, needs_geo_fetch, is_item_in_geo_queue, \
+    should_item_be_enabled
 from dealfu_groupon.background.geocode import submit_geo_request
 
 
@@ -56,6 +57,11 @@ class BaseEsPipe(object):
         #here check if we should add it to retry list
         self._add_if_to_geo_request(item, doc_id)
 
+
+        #check if we should enabled the item
+        if should_item_be_enabled(item):
+            self.update_item(doc_id, {"enabled":True})
+
         #you can hook on here !
         self.on_end_processing(item, spider)
 
@@ -100,6 +106,18 @@ class BaseEsPipe(object):
         return doc_id
 
 
+    def update_item(self, item_id, item_dict):
+        """
+        Updates the item
+        """
+        res = self.es.update(index=self.settings.get("ES_INDEX"),
+                            doc_type=self.settings.get("ES_INDEX_TYPE_DEALS"),
+                            body={"doc":item_dict},
+                            id=item_id)
+
+        return res
+
+
     def _add_if_to_geo_request(self, item, item_id):
         """
         Adds item into geo request queue if legitime to be gathered
@@ -117,7 +135,7 @@ class BaseEsPipe(object):
 
         #submit to celery to be processed!
         async_result = submit_geo_request.delay(self.settings, item_id)
-        print "SUBMITED GEO REQUEST : ",item_id
+        #print "SUBMITED GEO REQUEST : ",item_id
         return True
 
 
