@@ -2,8 +2,6 @@ import json
 import time
 import datetime
 import calendar
-import logging
-import sys
 
 
 from elasticsearch.exceptions import TransportError
@@ -15,9 +13,7 @@ from dealfu_groupon.utils import get_redis, get_es, save_deal_item, extract_lang
 from scrapy.utils.project import get_project_settings
 
 
-
 logger = get_default_logger("dealfu_groupon.cli.geopoll")
-
 
 
 @cli.app.CommandLineApp
@@ -59,7 +55,9 @@ def fetch_geo_addresses(settings, num_of_requests, geoapi):
     def _iter_addr_queue(redis_conn, key):
         while True:
             logger.info("=== WAITING FOR ADDRESS TO FETCH ===")
-            yield redis_conn.blpop(key)[1]
+            #implement a more reliable thing here
+            yield redis_conn.brpoplpush(key, key)
+
 
     #compute the submitted requsts for the last 24 hrs
     redis_conn = get_redis(settings)
@@ -100,8 +98,20 @@ def fetch_geo_addresses(settings, num_of_requests, geoapi):
         if update_save_item_addr(settings, item_id, cache_addr, result):
             logger.info("Item : {0} updated with geo info ".format(item_id))
 
+
+        #now you should remove the found item from queue
+        #note that this is different than StrictRedis interface
+        redis_conn.lrem(address_queue_key, formatted_addr, 1)
+
+        #print "Removing address : ",formatted_addr
+        #print "Keys : ",redis_conn.lrange(address_queue_key, 0, -1)
+        #print "Equal : ",redis_conn.lrange(address_queue_key, 0, -1)[0] == formatted_addr
+        #print "Remove result : ",redis_conn.lrem(address_queue_key, formatted_addr, 1)
+
         #wait for the desired time
         time.sleep(geoapi.delay)
+
+
 
         processed_requests += 1
         if processed_requests == num_of_requests:

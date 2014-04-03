@@ -13,7 +13,8 @@ from os.path import abspath, dirname
 import os
 from dealfu_groupon.background.geocode import format_str_address, submit_geo_request, \
     extract_lang_lon_from_cached_result
-from dealfu_groupon.cli.geopoll import cache_item, fetch_geo_addresses, GoogleGeoApi
+from dealfu_groupon.cli.geopoll import cache_item, fetch_geo_addresses, GoogleGeoApi, DataScienceToolkitGeoApi, \
+    GeoApiError
 
 
 def test_is_valid_address():
@@ -86,7 +87,7 @@ GOOGLE_GEO_REQUESTS_PERIOD = 24*60*60
 TEST_SETTINGS_OBJECT = dict(
     SCRAPY_ROOT = dirname(dirname(abspath(__file__))),
     #ES_SETTINGS
-    ES_SERVER = "127.0.0.1",
+    ES_SERVER = "192.168.0.113",
     ES_PORT = "9200",
     #ES index information
     ES_INDEX = "test_dealfu",
@@ -96,7 +97,7 @@ TEST_SETTINGS_OBJECT = dict(
     #REDIS QUEUE PARAMETERS
     REDIS_DEFAULT_DB = 1,
     REDIS_DEFAULT_QUEUE = "default_test",
-    REDIS_HOST = "127.0.0.1",
+    REDIS_HOST = "192.168.0.113",
     REDIS_PORT = 6379,
     REDIS_RETRY_PREFIX = "scrapy:retry:%s",
     REDIS_RETRY_COUNT = 4,
@@ -352,6 +353,13 @@ def _should_first_in_second(first, second):
         assert second[k] == v
 
 
+class FailingGeoApi(DataScienceToolkitGeoApi):
+
+    def fetch_geo(self, address):
+
+        raise GeoApiError("Error when fetching the item")
+
+
 class TestProcessGeoRequest(RedisEsSetupMixin, TestCase):
 
     @patch("dealfu_groupon.cli.geopoll.requests")
@@ -417,7 +425,7 @@ class TestProcessGeoRequest(RedisEsSetupMixin, TestCase):
         fetch_queue_key = self.settings.get("REDIS_GEO_POLL_LIST")
         self.redis_conn.rpush(fetch_queue_key, formatted_addr_id)
 
-        geoapi = GoogleGeoApi(self.settings)
+        geoapi = DataScienceToolkitGeoApi(self.settings)
         assert  fetch_geo_addresses(self.settings, 1, geoapi)
 
         #now check the cache we should have one value there
@@ -464,3 +472,43 @@ class TestProcessGeoRequest(RedisEsSetupMixin, TestCase):
         #check if we have lat/lon
         address = fresh_item["merchant"]["addresses"][0]
         _should_first_in_second(geo_dict, address)
+
+
+        #also we should check if the key is being removed from list
+        #of formatted addresses to be processed !
+
+        #print "KEYS : ",self.redis_conn.lrange(fetch_queue_key, 0, -1)
+        self.assertEqual(self.redis_conn.llen(fetch_queue_key),
+                         0)
+
+
+
+    def test_geo_fetch_failure(self):
+        
+        address_dict = {
+                        "phone_number": "214-577-1777",
+                        "country_code": "US",
+                        "country": "United States",
+                        "address_name": "Plano",
+                        "address": "4716 Alliance Boulevard Pavillion II, Suite 270 Plano",
+                     }
+
+        doc_id = "mock_id"
+        formatted_addr = format_str_address(address_dict)
+        formatted_addr_id = doc_id + ":" + formatted_addr
+
+        #add it on the queue
+        fetch_queue_key = self.settings.get("REDIS_GEO_POLL_LIST")
+        self.redis_conn.rpush(fetch_queue_key, formatted_addr_id)
+
+        geoapi = FailingGeoApi(self.settings)
+        self.assertRaises(GeoApiError, fetch_geo_addresses, self.settings, 1, geoapi)
+
+        self.assertEqual(self.redis_conn.llen(fetch_queue_key),
+                         1)
+        #the item should be there even if the whole process failed
+        address = self.redis_conn.lrange(fetch_queue_key, 0, -1)[0]
+        self.assertEqual(address, formatted_addr_id)
+
+
+
