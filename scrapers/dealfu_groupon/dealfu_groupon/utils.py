@@ -9,6 +9,7 @@ import functools
 import sys
 import logging
 from copy import copy
+from urlparse import urlparse
 
 from redis import Redis
 
@@ -195,6 +196,31 @@ def get_es(settings):
     }
 
     return elasticsearch.Elasticsearch(hosts=[d])
+
+
+def es_get_batch(settings, es, from_pg, per_page, query=None):
+    """
+    Gets a batch from specified query or from all
+    """
+    if not query:
+        query = {
+            "query":{
+                "match_all": {}
+            }
+        }
+
+    query["from"] = from_pg
+    query["size"] = per_page
+
+    result = es.search(index=settings["ES_INDEX"],
+                       doc_type=settings["ES_INDEX_TYPE_DEALS"],
+                       body=query)
+
+    total = result["hits"]["total"]
+    if total == 0:
+        return []
+
+    return result["hits"]["hits"]
 
 
 def get_redis(settings):
@@ -400,6 +426,20 @@ def is_item_in_geo_queue(redis_conn, redis_key ,item_id):
             return True
 
     return False
+
+
+
+def from_url_to_name(url):
+   """
+   Gets url and extract the only the domain name
+   """
+   r = urlparse(url.strip())
+   hostname = r.hostname
+
+   res = re.search("((www\.)*(.*)\.\w+)",hostname)
+   if res:
+       return res.group(3)
+   return None
 
 
 
