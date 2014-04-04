@@ -380,28 +380,33 @@ def needs_geo_fetch(item, item_id=None, logger=None):
         item_id = item.get("id", "not_created")
 
 
+
     merchant = item.get("merchant")
     if not merchant:
-        logger("No merchant info, not submitted for geo request : {0}"
+        logger.warn("No merchant info, not submitted for geo request : {0}"
                     .format(item_id))
         return False
 
     addresses = merchant.get("addresses")
     if not addresses:
-        logger("No address info, not submitted for geo request : {0}"
+        logger.warn("No address info, not submitted for geo request : {0}"
                     .format(item_id))
         return False
 
 
     if not any([a for a in addresses if is_valid_address(a)]):
-        logger("No valid address info, not submitted for geo request : {0}"
+        logger.warn("No valid address info, not submitted for geo request : {0}"
                     .format(item_id))
         return False
 
     #check if all of the addresses are geo enabled
     #if yes no need for checking
     if all([a.get("geo_location") for a in addresses]):
+        logger.warn("All of addresses are geo encoded ")
         return False
+
+    #logger.info("Item should be geo encoded")
+
 
     return True
 
@@ -409,7 +414,7 @@ def needs_address_geo_fetch(address):
     """
     Checks if address item need geo fect
     """
-    return False if address.get("geo_location") else False
+    return False if address.get("geo_location") else True
 
 
 
