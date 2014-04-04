@@ -170,13 +170,13 @@ class GoogleGeoApi(object):
     from google api
     """
 
-    def __init__(self, settings):
+    def __init__(self, settings, log=None):
 
         self.settings = settings
         self.api_key = settings["GOOGLE_GEO_API_KEY"]
         self.api_endpoint = settings.get("GOOGLE_GEO_API_ENDPOINT")
         self.delay = self.compute_delay()[0]
-
+        self.log = log or logger
 
     def get_payload(self, address):
 
@@ -205,6 +205,7 @@ class GoogleGeoApi(object):
 
             result = r.json()
             if result["status"] != "OK":
+                self.log.warn("Error when pulling addr : {}".format(result["status"]))
                 #log something here and start waiting
                 time.sleep(self.delay * 5)
                 retry_count -= 1
@@ -218,11 +219,12 @@ class GoogleGeoApi(object):
 
 class DataScienceToolkitGeoApi(GoogleGeoApi):
 
-    def __init__(self, settings):
+    def __init__(self, settings, log=None):
 
         self.settings = settings
         self.api_endpoint = settings.get("DATASCIENCE_GEO_API_ENDPOINT")
         self.delay = self.compute_delay()[0]
+        self.log = log or logger
 
 
     def get_payload(self, address):
