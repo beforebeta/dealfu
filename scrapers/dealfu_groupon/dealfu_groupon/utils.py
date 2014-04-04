@@ -165,7 +165,7 @@ def strip_list_to_str(lst):
 
     stripped = [s.strip() for s in lst]
     filtered = [s for s in stripped if s]
-    return "".join(filtered)
+    return " ".join(filtered)
 
 
 def clean_float_values(sfloat, *clean_lst):
