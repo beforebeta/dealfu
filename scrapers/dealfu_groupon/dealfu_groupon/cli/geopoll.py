@@ -101,7 +101,7 @@ def fetch_geo_addresses(settings, num_of_requests, geoapi):
 
         #now you should remove the found item from queue
         #note that this is different than StrictRedis interface
-        redis_conn.lrem(address_queue_key, formatted_addr, 1)
+        redis_conn.lrem(address_queue_key, formatted_addr, 0)
 
         #print "Removing address : ",formatted_addr
         #print "Keys : ",redis_conn.lrange(address_queue_key, 0, -1)
