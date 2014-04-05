@@ -266,7 +266,6 @@ def needs_retry(item):
                         "short_title",)
 
     merchant_mandatory = (
-        "name",
         "addresses",
     )
 
