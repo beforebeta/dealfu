@@ -360,17 +360,19 @@ class FailingGeoApi(DataScienceToolkitGeoApi):
         raise GeoApiError("Error when fetching the item")
 
 
+class GetJson(object):
+
+    def __init__(self, response):
+        self.response = response
+
+    def json(self):
+        return self.response
+
+
 class TestProcessGeoRequest(RedisEsSetupMixin, TestCase):
 
     @patch("dealfu_groupon.cli.geopoll.requests")
     def test_fetch_geo_addresses_success(self, mock_requests):
-        class GetJson(object):
-
-            def __init__(self, response):
-                self.response = response
-
-            def json(self):
-                return self.response
 
         item = {
             "merchant": {
@@ -511,4 +513,48 @@ class TestProcessGeoRequest(RedisEsSetupMixin, TestCase):
         self.assertEqual(address, formatted_addr_id)
 
 
+    @patch("dealfu_groupon.cli.geopoll.requests")
+    def test_geo_fetch_empty_success(self, mock_requests):
+        doc_id = "fake_id"
+
+        mock_response = {
+            u'results': [],
+            u'status': u'ZERO_RESULTS'
+        }
+
+        get_mock = MagicMock(return_value=GetJson(mock_response))
+        mock_requests.get = get_mock
+
+        address_dict = {
+                        "phone_number": "214-577-1777",
+                        "country_code": "US",
+                        "country": "United States",
+                        "address_name": "Plano",
+                        "address": "non_existing_addr",
+                     }
+
+        formatted_addr = format_str_address(address_dict)
+        formatted_addr_id = doc_id + ":" + formatted_addr
+
+        #add it on the queue
+        fetch_queue_key = self.settings.get("REDIS_GEO_POLL_LIST")
+        self.redis_conn.rpush(fetch_queue_key, formatted_addr_id)
+
+        #that is the case when we don't want to the address to be refetched
+        geoapi = DataScienceToolkitGeoApi(self.settings, ignore_empty=True)
+        assert  fetch_geo_addresses(self.settings, 1, geoapi)
+
+        self.assertEqual(self.redis_conn.llen(fetch_queue_key),0)
+
+        #replay scenario again with failure
+        self.redis_conn.rpush(fetch_queue_key, formatted_addr_id)
+        #try with default behaviour
+
+        geoapi = DataScienceToolkitGeoApi(self.settings)
+        self.assertRaises(GeoApiError, fetch_geo_addresses, self.settings, 1, geoapi)
+
+        self.assertEqual(self.redis_conn.llen(fetch_queue_key), 1)
+        #the item should be there even if the whole process failed
+        address = self.redis_conn.lrange(fetch_queue_key, 0, -1)[0]
+        self.assertEqual(address, formatted_addr_id)
 

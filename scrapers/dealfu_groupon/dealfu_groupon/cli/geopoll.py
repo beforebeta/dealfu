@@ -16,6 +16,9 @@ from scrapy.utils.project import get_project_settings
 logger = get_default_logger("dealfu_groupon.cli.geopoll")
 
 
+GEO_FETCH_RESULT_EMPTY = "ZERO_RESULTS"
+
+
 @cli.app.CommandLineApp
 def process_geo_requests_cli(app):
     """
@@ -86,32 +89,27 @@ def fetch_geo_addresses(settings, num_of_requests, geoapi):
         logger.info("A new request log entry added : {0}".format(formatted_addr+":"+str(time_entry)))
 
         result = geoapi.fetch_geo(address)
+        if result == GEO_FETCH_RESULT_EMPTY:
+            logger.info("Skipping address because it returned empty result : {}".format(address))
+        else:
+            #submit the item to the cache
+            cache_addr = ":".join(formatted_list[1:])
+            cache_key = settings.get("REDIS_GEO_CACHE_KEY") % cache_addr
+            #print "FN_CACHE_KEY ",cache_key
+            cache_item(redis_conn, cache_key, result)
+            logger.info("Item submitted to the cache with key : {0}".format(cache_key))
 
-        #submit the item to the cache
-        cache_addr = ":".join(formatted_list[1:])
-        cache_key = settings.get("REDIS_GEO_CACHE_KEY") % cache_addr
-        #print "FN_CACHE_KEY ",cache_key
-        cache_item(redis_conn, cache_key, result)
-        logger.info("Item submitted to the cache with key : {0}".format(cache_key))
-
-        #at that point we should update the specified item's lat and lon
-        if update_save_item_addr(settings, item_id, cache_addr, result):
-            logger.info("Item : {0} updated with geo info ".format(item_id))
+            #at that point we should update the specified item's lat and lon
+            if update_save_item_addr(settings, item_id, cache_addr, result):
+                logger.info("Item : {0} updated with geo info ".format(item_id))
 
 
         #now you should remove the found item from queue
         #note that this is different than StrictRedis interface
         redis_conn.lrem(address_queue_key, formatted_addr, 0)
 
-        #print "Removing address : ",formatted_addr
-        #print "Keys : ",redis_conn.lrange(address_queue_key, 0, -1)
-        #print "Equal : ",redis_conn.lrange(address_queue_key, 0, -1)[0] == formatted_addr
-        #print "Remove result : ",redis_conn.lrem(address_queue_key, formatted_addr, 1)
-
         #wait for the desired time
         time.sleep(geoapi.delay)
-
-
 
         processed_requests += 1
         if processed_requests == num_of_requests:
@@ -164,7 +162,46 @@ def cache_item(redis_conn, address_key, geo_response):
     return True
 
 
-class GoogleGeoApi(object):
+class GeoFetchMixin(object):
+    """
+    The parts that fetches the object
+
+    mixes into something that has:
+        -get_payload
+        -api_endpoint
+        -delay
+        -log
+
+    """
+    def fetch_geo(self, address):
+
+        retry_count = 5
+
+        while retry_count > 0:
+            payload = self.get_payload(address)
+
+            r = requests.get(self.api_endpoint,
+                             params=payload)
+
+            result = r.json()
+
+            if result["status"] == "OK":
+                #we're done exit
+                return result
+            elif result["status"] == "ZERO_RESULTS":
+                return GEO_FETCH_RESULT_EMPTY
+            else:
+                self.log.warn("Error when pulling addr : {}".format(result["status"]))
+                #log something here and start waiting
+                time.sleep(self.delay * 5)
+                retry_count -= 1
+                continue
+
+        raise GeoApiError("Retry count exceeded!")
+
+
+
+class GoogleGeoApi(GeoFetchMixin):
     """
     Converts the address data to geo data
     from google api
@@ -193,38 +230,16 @@ class GoogleGeoApi(object):
         return self.settings.get("GOOGLE_GEO_DEFAULT_DELAY"), self.settings.get("GOOGLE_GEO_REQUESTS_PER_DAY")
 
 
-    def fetch_geo(self, address):
-
-        retry_count = 5
-
-        while retry_count > 0:
-            payload = self.get_payload(address)
-
-            r = requests.get(self.api_endpoint,
-                             params=payload)
-
-            result = r.json()
-            if result["status"] != "OK":
-                self.log.warn("Error when pulling addr : {}".format(result["status"]))
-                #log something here and start waiting
-                time.sleep(self.delay * 5)
-                retry_count -= 1
-                continue
-            else:
-                #we're done exit
-                return result
-
-        raise GeoApiError("Retry count exceeded!")
 
 
-class DataScienceToolkitGeoApi(GoogleGeoApi):
+class DataScienceToolkitGeoApi(GeoFetchMixin):
 
-    def __init__(self, settings, log=None):
-
+    def __init__(self, settings, log=None, ignore_empty=False):
         self.settings = settings
         self.api_endpoint = settings.get("DATASCIENCE_GEO_API_ENDPOINT")
         self.delay = self.compute_delay()[0]
         self.log = log or logger
+        self.ignore_empty = ignore_empty
 
 
     def get_payload(self, address):
@@ -243,6 +258,16 @@ class DataScienceToolkitGeoApi(GoogleGeoApi):
         Computes the delay between 2 requests
         """
         return 1, 1000000
+
+
+    def fetch_geo(self, address):
+        result = super(DataScienceToolkitGeoApi, self).fetch_geo(address)
+
+        if result == GEO_FETCH_RESULT_EMPTY and not self.ignore_empty:
+            raise GeoApiError("Got empty result from {}".format(address))
+
+        #otherwise return the result back
+        return result
 
 
 class GeoApiError(Exception):
