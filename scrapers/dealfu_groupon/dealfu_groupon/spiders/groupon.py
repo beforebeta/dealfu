@@ -9,10 +9,20 @@ from scrapy.selector import Selector
 from dateutil.relativedelta import relativedelta
 
 from dealfu_groupon.items import DealfuItem, MerchantItem
-from dealfu_groupon.utils import get_fresh_merchant_address, get_short_region_name, get_first_from_xp, extract_query_params, replace_query_param, \
-    iter_divisions, clean_float_values
+from dealfu_groupon.utils import get_fresh_merchant_address, get_first_from_xp, \
+    extract_query_params, replace_query_param, clean_float_values
 
 from dealfu_groupon.pipelines import grouponespipe
+
+
+def iter_divisions(fpath):
+    """
+    Gets a path to the division file and traverses the file
+    by returning 1 record of division at time
+    """
+    divs = json.loads(open(fpath, "r").read())
+    for d in divs["divisions"]:
+        yield d
 
 
 class GrouponSpider(Spider):
