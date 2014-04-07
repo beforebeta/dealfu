@@ -5,16 +5,21 @@ import json
 import datetime
 import calendar
 from unittest import TestCase
-
-from dealfu_groupon.utils import get_es, get_redis, is_valid_address
-from elasticsearch.exceptions import TransportError
 from mock import MagicMock, patch
-from os.path import abspath, dirname
 import os
+from os.path import abspath, dirname
+
+from elasticsearch.exceptions import TransportError
+from elasticsearch.client import IndicesClient
+
+
+from dealfu_groupon.utils import get_es, get_redis, is_valid_address, from_obj_settings
+from dealfu_groupon.dsettings import test
 from dealfu_groupon.background.geocode import format_str_address, submit_geo_request, \
     extract_lang_lon_from_cached_result
 from dealfu_groupon.cli.geopoll import cache_item, fetch_geo_addresses, GoogleGeoApi, DataScienceToolkitGeoApi, \
     GeoApiError
+
 
 
 def test_is_valid_address():
@@ -81,46 +86,8 @@ def _get_default_google_resp():
               u'status': u'OK'}
 
 
-GOOGLE_GEO_REQUESTS_PER_DAY = 2500
-GOOGLE_GEO_REQUESTS_PERIOD = 24*60*60
-
-TEST_SETTINGS_OBJECT = dict(
-    SCRAPY_ROOT = dirname(dirname(abspath(__file__))),
-    #ES_SETTINGS
-    ES_SERVER = "192.168.0.113",
-    ES_PORT = "9200",
-    #ES index information
-    ES_INDEX = "test_dealfu",
-    ES_INDEX_TYPE_DEALS = "deal",
-    ES_INDEX_TYPE_CATEGORY = "category",
-
-    #REDIS QUEUE PARAMETERS
-    REDIS_DEFAULT_DB = 1,
-    REDIS_DEFAULT_QUEUE = "default_test",
-    REDIS_HOST = "192.168.0.113",
-    REDIS_PORT = 6379,
-    REDIS_RETRY_PREFIX = "scrapy:retry:%s",
-    REDIS_RETRY_COUNT = 4,
-    REDIS_RETRY_DELAY = 20, #seconds to wait after we start retrying
-    REDIS_RETRY_STATUS_READY = "READY",
-    REDIS_RETRY_STATUS_FINISHED = "FINISHED",
-    REDIS_RETRY_STATUS_FAILED = "FAILED",
-
-    #REDIS GEO SETTINGS
-    REDIS_GEO_CACHE_KEY = "scrapy:geo:cache:%s", #pattern for cached values so far !
-    REDIS_GEO_POLL_LIST = "scrapy:geo:queue", # alist with items to pull
-    REDIS_GEO_REQUEST_LOG = "scrapy:geo:requests",
-
-    #GOOGLE GEOCODING SETTINGS
-    GOOGLE_GEO_API_KEY = "fake_test",
-    GOOGLE_GEO_API_ENDPOINT = "https://maps.googleapis.com/maps/api/geocode/json",
-    GOOGLE_GEO_REQUESTS_PER_DAY = GOOGLE_GEO_REQUESTS_PER_DAY,
-    GOOGLE_GEO_REQUESTS_PERIOD = GOOGLE_GEO_REQUESTS_PERIOD,
-    GOOGLE_GEO_DEFAULT_DELAY = GOOGLE_GEO_REQUESTS_PERIOD / GOOGLE_GEO_REQUESTS_PER_DAY
- )
-
-
-from elasticsearch.client import IndicesClient
+TEST_SETTINGS_OBJECT = from_obj_settings(test)
+SCRAPY_ROOT = dirname(dirname(abspath(__file__)))
 
 
 class RedisEsSetupMixin(object):
@@ -138,7 +105,7 @@ class RedisEsSetupMixin(object):
 
         self.esi.create(index=self.index)
 
-        mapping_path = os.path.join(self.settings.get("SCRAPY_ROOT"),
+        mapping_path = os.path.join(SCRAPY_ROOT,
                                  "resources/mappings.json")
 
         mapping_str = open(mapping_path, "r").read()
