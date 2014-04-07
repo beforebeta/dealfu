@@ -57,6 +57,7 @@ class DealfuItem(Item):
 
     #bool fields
     enabled = Field()
+    deleted = Field()
 
     #category info
     category_name = Field()
