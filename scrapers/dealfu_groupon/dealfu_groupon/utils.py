@@ -1,22 +1,23 @@
 """
 Some useful common functions
 """
-import urlparse
 import urllib
-import json
 import re
 import functools
 import sys
 import logging
 from copy import copy
 from urlparse import urlparse
-
-from redis import Redis
-
-from dealfu_groupon.items import MerchantItem, MerchantAddressItem, DealCategoryItem
+import unicodedata
 
 import elasticsearch
+from redis import Redis
 
+from dealfu_groupon.items import MerchantAddressItem, DealCategoryItem
+
+
+
+#spider utils
 def get_fresh_merchant_address():
     """
     Gets a MerchantItem with defaults attached to it
@@ -31,21 +32,17 @@ def get_fresh_merchant_address():
 
     return m
 
-
-def get_first_non_empty(lst):
+def get_dealfu_category(name, parent=None):
     """
-    Sometimes we need the next non empty value
-    @param lst:
-    @return: stripped item with index tuple
+    Factory for dealfu category
     """
+    dc = DealCategoryItem()
+    dc["name"] = name
+    dc["slug"] = slugify(unicode(name))
+    dc["parent_slug"] = slugify(unicode(parent)) if parent else None
 
-    for i,e in enumerate(lst):
-        se = e.strip()
-        if se:
-            return se, i
+    return dc
 
-
-    return None, -1
 
 
 def get_first_from_xp(xp, missing=None):
@@ -62,68 +59,7 @@ def get_first_from_xp(xp, missing=None):
     return xp[0].extract()
 
 
-
-REGION_DICT = {
-        "Alabama" : "AL",
-        "Alaska": "AK",
-        "Arizona" : "AZ",
-        "Arkansas" : "AR",
-        "California" :"CA",
-        "Colorado": "CO",
-        "Connecticut" :"CT",
-        "Delaware" :"DE",
-        "Florida" : "FL",
-        "Georgia" :"GA",
-        "Hawaii" :"HI",
-        "Illinois" :"IL",
-        "Indiana" :"IN",
-        "Iowa": "IA",
-        "Kansas": "KS",
-        "Kentucky":"KY",
-        "Louisiana": "LA",
-        "Maine":"ME",
-        "Maryland": "MD",
-        "Massachusetts":"MA",
-        "Michigan": "MI",
-        "Minnesota":"MN",
-        "Mississippi":"MS",
-        "Missouri":"MO",
-        "Montana":"MT",
-        "Nebraska":"NB",
-        "Nevada":"NV",
-        "New Hampshire" : "NH",
-        "New Jersey":"NJ",
-        "New Mexico":"NM",
-        "New York":"NY",
-        "North Carolina":"NC",
-        "North Dakota":"ND",
-        "Ohio":"OH",
-        "Oklahoma":"OK",
-        "Oregon":"OR",
-        "Pennsylvania":"PA",
-        "Rhode Island":"RI",
-        "South Carolina":"SC",
-        "South Dakota":"SD",
-        "Tennessee":"TN",
-        "Texas":"TX",
-        "Utah":"UT",
-        "Vermont":"VT",
-        "Virginia":"VA",
-        "Washington":"WA",
-        "West Virginia":"WV",
-        "Wisconsin":"WI",
-        "Wyoming":"WY"
-    }
-
-
-def get_short_region_name(region_name):
-    """
-    Gets the shorter version of the given region
-    @param region_name:
-    @return: shorter name
-    """
-    return REGION_DICT.get(region_name.strip())
-
+#url utils
 
 def extract_query_params(url, *names):
     """
@@ -138,6 +74,7 @@ def extract_query_params(url, *names):
     return {key:value[0] for (key, value) in d.iteritems() if key in names}
 
 
+
 def replace_query_param(url, name, value):
     encoded_str = urllib.urlencode({name:value})
     d = extract_query_params(url, name)
@@ -146,43 +83,6 @@ def replace_query_param(url, name, value):
     return url.replace(encoded_old, encoded_str)
 
 
-
-def iter_divisions(fpath):
-    """
-    Gets a path to the division file and traverses the file
-    by returning 1 record of division at time
-    """
-    divs = json.loads(open(fpath, "r").read())
-    for d in divs["divisions"]:
-        yield d
-
-
-
-def strip_list_to_str(lst):
-    """
-    Strips all of the members and returns a str combined
-    """
-
-    stripped = [s.strip() for s in lst]
-    filtered = [s for s in stripped if s]
-    return " ".join(filtered)
-
-
-def clean_float_values(sfloat, *clean_lst):
-    """
-    Does some general cleaning of float values
-    """
-
-    for c in clean_lst:
-        sfloat = sfloat.replace(c, "")
-
-    #we should extract it from here
-    res = re.search("(\d+\.?\d*)", sfloat)
-    if not res:
-        return 0
-
-    sfloat = res.group(1)
-    return float(sfloat.strip())
 
 
 #ES UTILS
@@ -223,6 +123,38 @@ def es_get_batch(settings, es, from_pg, per_page, query=None):
     return result["hits"]["hits"]
 
 
+def save_deal_item(settings, item_id, item, es_conn=None, update=True):
+    """
+    Saves the changed item into ES
+    """
+    if not es_conn:
+        es = get_es(settings)
+    else:
+        es = es_conn
+
+    #at that stage we should check if we need to
+    #do some enabled checks
+    if not item.get("enabled") and should_item_be_enabled(item):
+        item["enabled"] = True
+
+    if not update:
+        es.index(index=settings.get("ES_INDEX"),
+                 doc_type=settings.get("ES_INDEX_TYPE_DEALS"),
+                 body=item,
+                 id=item_id)
+    else:
+        #partial update that is better
+        es.update(index=settings.get("ES_INDEX"),
+                 doc_type=settings.get("ES_INDEX_TYPE_DEALS"),
+                 body={"doc":item},
+                 id=item_id)
+
+    return True
+
+
+
+#redis utils
+
 def get_redis(settings):
     """
     Gets a redis connection from supplied settings
@@ -236,85 +168,24 @@ def get_redis(settings):
     return redis_conn
 
 
-def needs_retry(item):
+
+def is_item_in_geo_queue(redis_conn, redis_key ,item_id):
     """
-    Method checks the given item if it should be
-    re-parsed or not. Basically the mandatory fields are :
-
-    -category_name
-    -category_slug
-    -description
-    -title
-    -short_title
-    -merchant.name
-    -merchant.address
-
-    or we need any of those :
-
-    - price
-    - discount_amount
-    - discount_percentage
+    Checks if item_id is in queue of geo encoding fetch
+    It seems it is not very wise to traverse whole list
+    but it will work for now at least, later may replace
+    with ordered set if have some per bottleneck
     """
-
-    mandatory_offline = ("description",
-                        "title",
-                        "short_title",
-                        "merchant",)
-
-    mandatory_online = ("description",
-                        "title",
-                        "short_title",)
-
-    merchant_mandatory = (
-        "addresses",
-    )
-
-
-
-    if item["online"]:
-        mandatory = mandatory_online
-    else:
-        mandatory = mandatory_offline
-
-    if any([False if item.get(f) else True for f in mandatory]):
-        return True
-
-    if not item["online"]:
-        #if it is online those ar not relevant
-        merchant = item.get("merchant")
-        if any([False if merchant.get(f) else True for f in merchant_mandatory]):
-            return True
-
-        #now check if we have at least the address
-        if not merchant.get("addresses")[0]:
-            return True
-
-    if needs_price_retry(item):
-        return True
-
-    return False
-
-
-def some(fn, iterable):
-    """
-    An useful util
-    """
-    for i in iterable:
-        if fn(i):
+    results = redis_conn.lrange(redis_key, 0, -1)
+    for r in results:
+        if r.split(":")[0].strip() == item_id:
             return True
 
     return False
 
 
-def get_in(d, *args):
-    if not d:
-        return None
 
-    if args:
-        return get_in(d.get(args[0]), *args[1:])
-    else:
-        return d
-
+#item validation
 
 def are_addresses_geo_encoded(item):
     """
@@ -333,22 +204,6 @@ def are_addresses_geo_encoded(item):
     return True
 
 
-def should_item_be_enabled(item):
-    """
-    Checks if item should be enabled or not
-    """
-    if needs_retry(item):
-        return False
-
-    #if it is offline check for geo encoding
-    if not item["online"] and not are_addresses_geo_encoded(item):
-        return False
-
-    #we're good
-    return True
-
-
-
 def is_valid_address(addr_dict):
     """
     Check if supplied address dictionary is
@@ -363,6 +218,73 @@ def is_valid_address(addr_dict):
         if not m in addr_dict:
             return False
 
+    return True
+
+
+
+def missing_mandatory_field(item):
+    """
+    Checks the item for mandatory fields
+    """
+
+    mandatory = (
+        "description",
+        "title",
+        "short_title",
+        "merchant",
+        "category_name",
+        "category_slug",
+    )
+
+
+    merchant_mandatory = (
+        "name",
+    )
+
+    merchant_mandatory_offline = (
+        "addresses",
+    )
+
+
+    if any([False if item.get(f) else True for f in mandatory]):
+        return True
+
+
+    #check mandatory merchant fields
+    merchant = item.get("merchant")
+    if any([False if merchant.get(f) else True for f in merchant_mandatory]):
+        return True
+
+
+    if not item["online"]:
+        if any([False if merchant.get(f) else True for f in merchant_mandatory_offline]):
+            return True
+
+        #now check if we have at least the address
+        if not merchant.get("addresses")[0]:
+            return True
+
+
+    if needs_price_retry(item):
+        return True
+
+    return False
+
+
+
+
+def should_item_be_enabled(item):
+    """
+    Checks if item should be enabled or not
+    """
+    if missing_mandatory_field(item):
+        return False
+
+    #if it is offline check for geo encoding
+    if not item["online"] and not are_addresses_geo_encoded(item):
+        return False
+
+    #we're good
     return True
 
 
@@ -400,7 +322,7 @@ def needs_geo_fetch(item, item_id=None, logger=None):
 
     #check if all of the addresses are geo enabled
     #if yes no need for checking
-    if all([a.get("geo_location") for a in addresses]):
+    if all([not needs_address_geo_fetch(a) for a in addresses]):
         logger.warn("All of addresses are geo encoded ")
         return False
 
@@ -408,6 +330,7 @@ def needs_geo_fetch(item, item_id=None, logger=None):
 
 
     return True
+
 
 def needs_address_geo_fetch(address):
     """
@@ -417,39 +340,41 @@ def needs_address_geo_fetch(address):
 
 
 
-def is_item_in_geo_queue(redis_conn, redis_key ,item_id):
+def needs_retry(item):
     """
-    Checks if item_id is in queue of geo encoding fetch
-    It seems it is not very wise to traverse whole list
-    but it will work for now at least, later may replace
-    with ordered set if have some per bottleneck
+    Method checks the given item if it should be
+    re-parsed or not. Basically the mandatory fields are
     """
-    results = redis_conn.lrange(redis_key, 0, -1)
-    for r in results:
-        if r.split(":")[0].strip() == item_id:
+
+    #if it doesnt have those we need a retry
+    mandatory = ("merchant",)
+
+
+    #if when offline deal those are not here we should retry
+    merchant_mandatory_offline = (
+        "addresses",
+    )
+
+    if any([False if item.get(f) else True for f in mandatory]):
+        return True
+
+    if not item["online"]:
+        #if it is online those ar not relevant
+        merchant = item.get("merchant")
+        if any([False if merchant.get(f) else True for f in merchant_mandatory_offline]):
             return True
+
+        #now check if we have at least the address
+        if not merchant.get("addresses")[0]:
+            return True
+
 
     return False
 
 
-
-def from_url_to_name(url):
-   """
-   Gets url and extract the only the domain name
-   """
-   r = urlparse(url.strip())
-   hostname = r.hostname
-
-   res = re.search("((www\.)*(.*)\.\w+)",hostname)
-   if res:
-       return res.group(3)
-   return None
-
-
-
 def needs_price_retry(item):
     """
-    Checks if current item needa a price refetch
+    Checks if current item needs a price refetch
     """
     optional = (
         "price",
@@ -458,10 +383,35 @@ def needs_price_retry(item):
     )
 
     #check the optional pieces here
-    if not any([True if item.get(f) else False for f in optional]):
-        return True
+    if any([True if item.get(f) else False for f in optional]):
+        return False
+
+    return True
+
+
+
+#fn programming utilities
+
+def some(fn, iterable):
+    """
+    An useful util
+    """
+    for i in iterable:
+        if fn(i):
+            return True
 
     return False
+
+
+def get_in(d, *args):
+    if not d:
+        return None
+
+    if args:
+        return get_in(d.get(args[0]), *args[1:])
+    else:
+        return d
+
 
 
 
@@ -498,6 +448,8 @@ def merge_dict_items(first, second):
     return d3
 
 
+
+#other utils
 def from_obj_settings(obj):
     """
     Converts the object into a dictionary
@@ -508,35 +460,6 @@ def from_obj_settings(obj):
             d[key] = getattr(obj, key)
 
     return d
-
-
-def save_deal_item(settings, item_id, item, es_conn=None, update=True):
-    """
-    Saves the changed item into ES
-    """
-    if not es_conn:
-        es = get_es(settings)
-    else:
-        es = es_conn
-
-    #at that stage we should check if we need to
-    #do some enabled checks
-    if not item.get("enabled") and should_item_be_enabled(item):
-        item["enabled"] = True
-
-    if not update:
-        es.index(index=settings.get("ES_INDEX"),
-                 doc_type=settings.get("ES_INDEX_TYPE_DEALS"),
-                 body=item,
-                 id=item_id)
-    else:
-        #partial update that is better
-        es.update(index=settings.get("ES_INDEX"),
-                 doc_type=settings.get("ES_INDEX_TYPE_DEALS"),
-                 body={"doc":item},
-                 id=item_id)
-
-    return True
 
 
 
@@ -566,21 +489,34 @@ def extract_lang_lon_from_cached_result(result):
 
     return fdict
 
+def get_default_logger(name):
+    root = logging.getLogger(name)
 
-def get_dealfu_category(name, parent=None):
-    """
-    Factory for dealfu category
-    """
-    dc = DealCategoryItem()
-    dc["name"] = name
-    dc["slug"] = slugify(unicode(name))
-    dc["parent_slug"] = slugify(unicode(parent)) if parent else None
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    ch.setFormatter(formatter)
+    root.addHandler(ch)
+    root.setLevel(logging.DEBUG)
 
-    return dc
+    return root
 
 
 
-import unicodedata
+#string utils
+def from_url_to_name(url):
+   """
+   Gets url and extract the only the domain name
+   """
+   r = urlparse(url.strip())
+   hostname = r.hostname
+
+   res = re.search("((www\.)*(.*)\.\w+)",hostname)
+   if res:
+       return res.group(3)
+   return None
+
+
 def slugify(value):
     """
     Converts to lowercase, removes non-word characters (alphanumerics and
@@ -590,6 +526,33 @@ def slugify(value):
     value = unicodedata.normalize('NFKD', value).encode('ascii', 'ignore').decode('ascii')
     value = re.sub('[^\w\s-]', '', value).strip().lower()
     return re.sub('[-\s]+', '-', value)
+
+
+def strip_list_to_str(lst):
+    """
+    Strips all of the members and returns a str combined
+    """
+
+    stripped = [s.strip() for s in lst]
+    filtered = [s for s in stripped if s]
+    return " ".join(filtered)
+
+
+def clean_float_values(sfloat, *clean_lst):
+    """
+    Does some general cleaning of float values
+    """
+
+    for c in clean_lst:
+        sfloat = sfloat.replace(c, "")
+
+    #we should extract it from here
+    res = re.search("(\d+\.?\d*)", sfloat)
+    if not res:
+        return 0
+
+    sfloat = res.group(1)
+    return float(sfloat.strip())
 
 
 
@@ -621,14 +584,3 @@ def check_spider_pipeline(process_item_method):
     return wrapper
 
 
-def get_default_logger(name):
-    root = logging.getLogger(name)
-
-    ch = logging.StreamHandler(sys.stdout)
-    ch.setLevel(logging.DEBUG)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    ch.setFormatter(formatter)
-    root.addHandler(ch)
-    root.setLevel(logging.DEBUG)
-
-    return root
