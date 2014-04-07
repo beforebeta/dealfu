@@ -551,7 +551,7 @@ class TestProcessGeoRequest(RedisEsSetupMixin, TestCase):
         #try with default behaviour
 
         geoapi = DataScienceToolkitGeoApi(self.settings)
-        self.assertRaises(GeoApiError, fetch_geo_addresses, self.settings, 1, geoapi)
+        assert fetch_geo_addresses(self.settings, 1, geoapi)
 
         self.assertEqual(self.redis_conn.llen(fetch_queue_key), 1)
         #the item should be there even if the whole process failed

@@ -88,25 +88,31 @@ def fetch_geo_addresses(settings, num_of_requests, geoapi):
 
         logger.info("A new request log entry added : {0}".format(formatted_addr+":"+str(time_entry)))
 
-        result = geoapi.fetch_geo(address)
-        if result == GEO_FETCH_RESULT_EMPTY:
-            logger.info("Skipping address because it returned empty result : {}".format(address))
-        else:
-            #submit the item to the cache
-            cache_addr = ":".join(formatted_list[1:])
-            cache_key = settings.get("REDIS_GEO_CACHE_KEY") % cache_addr
-            #print "FN_CACHE_KEY ",cache_key
-            cache_item(redis_conn, cache_key, result)
-            logger.info("Item submitted to the cache with key : {0}".format(cache_key))
+        remove_queue_entry = True
+        try:
+            result = geoapi.fetch_geo(address)
+            if result == GEO_FETCH_RESULT_EMPTY:
+                logger.info("Skipping address because it returned empty result : {}".format(address))
+            else:
+                #submit the item to the cache
+                cache_addr = ":".join(formatted_list[1:])
+                cache_key = settings.get("REDIS_GEO_CACHE_KEY") % cache_addr
+                #print "FN_CACHE_KEY ",cache_key
+                cache_item(redis_conn, cache_key, result)
+                logger.info("Item submitted to the cache with key : {0}".format(cache_key))
 
-            #at that point we should update the specified item's lat and lon
-            if update_save_item_addr(settings, item_id, cache_addr, result):
-                logger.info("Item : {0} updated with geo info ".format(item_id))
+                #at that point we should update the specified item's lat and lon
+                if update_save_item_addr(settings, item_id, cache_addr, result):
+                    logger.info("Item : {0} updated with geo info ".format(item_id))
 
+        except GeoApiEmptyError,ex:
+            logger.error("Empty result from : {}".format(address))
+            remove_queue_entry = False
 
         #now you should remove the found item from queue
         #note that this is different than StrictRedis interface
-        redis_conn.lrem(address_queue_key, formatted_addr, 0)
+        if remove_queue_entry:
+            redis_conn.lrem(address_queue_key, formatted_addr, 0)
 
         #wait for the desired time
         time.sleep(geoapi.delay)
@@ -117,6 +123,8 @@ def fetch_geo_addresses(settings, num_of_requests, geoapi):
 
 
     return True
+
+
 
 
 def update_save_item_addr(settings, item_id, formatted_addr, geo_result):
@@ -264,7 +272,7 @@ class DataScienceToolkitGeoApi(GeoFetchMixin):
         result = super(DataScienceToolkitGeoApi, self).fetch_geo(address)
 
         if result == GEO_FETCH_RESULT_EMPTY and not self.ignore_empty:
-            raise GeoApiError("Got empty result from {}".format(address))
+            raise GeoApiEmptyError("Got empty result from {}".format(address))
 
         #otherwise return the result back
         return result
@@ -272,6 +280,11 @@ class DataScienceToolkitGeoApi(GeoFetchMixin):
 
 class GeoApiError(Exception):
     pass
+
+
+class GeoApiEmptyError(Exception):
+    pass
+
 
 
 def get_current_geo_api(settings, geo_api):
