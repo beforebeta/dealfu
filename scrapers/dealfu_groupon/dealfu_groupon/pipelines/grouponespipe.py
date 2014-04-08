@@ -5,6 +5,7 @@ from scrapy import log
 from dealfu_groupon.utils import needs_retry
 from dealfu_groupon.background.retry import retry_document
 from dealfu_groupon.pipelines.genespipe import BaseEsPipe
+from scrapy.exceptions import DropItem
 
 
 class GrouponEsPipeLine(BaseEsPipe):
@@ -39,6 +40,21 @@ class GrouponEsPipeLine(BaseEsPipe):
         Some action to be taken at the end of the processing item
         """
         self._add_if_to_rety_list(item)
+        return True
+
+
+    def on_mandatory_missing(self, item, spider):
+        """
+        That is called on start when the item is fetched
+        the default behaviour is to drop the item
+        On groupon we have lots of items without merchant names
+        which is a big issue because their number is a lot!!!
+        """
+        #if the item should be retried we should not drop it
+        #at least now maybe later
+        if not needs_retry(item):
+            raise DropItem("Item has missing mandatory fields dropped : {} (no retry)".format(item["untracked_url"]))
+
         return True
 
 
