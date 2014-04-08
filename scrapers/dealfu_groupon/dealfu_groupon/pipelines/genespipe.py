@@ -9,7 +9,7 @@ from scrapy import log
 from scrapy.exceptions import DropItem
 
 from dealfu_groupon.utils import check_spider_pipeline, get_es, needs_geo_fetch, is_item_in_geo_queue, \
-    should_item_be_enabled
+    should_item_be_enabled, needs_retry, missing_mandatory_field
 from dealfu_groupon.background.geocode import submit_geo_request
 
 
@@ -41,12 +41,19 @@ class BaseEsPipe(object):
         Process the item
         """
         if self._is_duplicate(item):
+            if item.get("deleted"):
+                self.update_item(item["id"], {"deleted":True})
+                raise DropItem("Deal is expired, marked as deleted : {}".format(item["untracked_url"]))
             #maybe we missed the geo thing before
             self._add_if_to_geo_request(item, item["id"])
-            #the item is already in database we don't need to add it again
             self.on_duplicate_item(item, item["id"])
 
+            #the item is already in database we don't need to add it again
             raise DropItem("The item :%s is already in db"%item.get("untracked_url"))
+
+        if missing_mandatory_field(item):
+            #that means that this item has some fields missing
+            self.on_mandatory_missing(item, spider)
 
         doc_id = self.save_item(item)
         if not doc_id:
@@ -69,7 +76,6 @@ class BaseEsPipe(object):
 
 
     #hook methods
-
     def on_duplicate_item(self, item, item_id):
         """
         Some action to be taken on duplication
@@ -82,6 +88,16 @@ class BaseEsPipe(object):
         Some action to be taken at the end of the processing item
         """
         pass
+
+
+    def on_mandatory_missing(self, item, spider):
+        """
+        That is called on start when the item is fetched
+        the default behaviour is to drop the item
+        different pipelines can do different things
+        """
+        raise DropItem("Item has missing mandatory fields dropped : {}".format(item["untracked_url"]))
+
 
 
     def save_item(self, item):
